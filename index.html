@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a0a00">
+<title>Último Campamento</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --ui-bg: rgba(10, 5, 0, 0.85);
+    --ui-border: rgba(255, 160, 50, 0.4);
+    --ui-text: #f0d090;
+    --hp-color: #e05050;
+    --energy-color: #50a0e0;
+    --heat-color: #e08030;
+    --accent: #ffaa33;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0500;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #canvas {
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
+    image-rendering: pixelated;
+  }
+  /* ── HUD ── */
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 8px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #hud-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  #hud-stats { display: flex; flex-direction: column; gap: 3px; }
+  .stat-bar { display: flex; align-items: center; gap: 4px; }
+  .stat-icon { width: 14px; font-size: 10px; text-align: center; }
+  .bar-track {
+    width: 90px; height: 7px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.15);
+    overflow: hidden;
+  }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.2s; }
+  #bar-hp { background: var(--hp-color); }
+  #bar-energy { background: var(--energy-color); }
+  #bar-heat { background: var(--heat-color); }
+  #hud-info {
+    text-align: right;
+    color: var(--ui-text);
+    font-size: 11px;
+    line-height: 1.5;
+    text-shadow: 0 0 6px rgba(0,0,0,1);
+  }
+  #hud-resources {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-top: 2px;
+  }
+  .res-item {
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    color: var(--ui-text);
+  }
+  /* ── CONTROLES TÁCTILES ── */
+  #touch-controls {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    pointer-events: none;
+    z-index: 20;
+    height: 180px;
+  }
+  #joystick-zone {
+    position: absolute; bottom: 20px; left: 20px;
+    width: 120px; height: 120px;
+    pointer-events: all;
+  }
+  #joystick-base {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: rgba(255,180,80,0.15);
+    border: 2px solid rgba(255,180,80,0.4);
+  }
+  #joystick-thumb {
+    position: absolute;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(255,160,50,0.6);
+    border: 2px solid rgba(255,200,100,0.8);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    transition: transform 0.05s;
+    pointer-events: none;
+  }
+  #action-buttons {
+    position: absolute; bottom: 20px; right: 16px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; pointer-events: all;
+  }
+  .action-btn {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: rgba(10,5,0,0.7);
+    border: 2px solid var(--ui-border);
+    color: var(--ui-text);
+    font-size: 9px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    pointer-events: all;
+    letter-spacing: 0;
+  }
+  .action-btn span { font-size: 16px; }
+  .action-btn.active { background: rgba(255,140,40,0.4); border-color: var(--accent); }
+  #btn-pause {
+    position: absolute; bottom: 80px; right: 16px;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: rgba(10,5,0,0.7);
+    border: 1px solid var(--ui-border);
+    color: var(--ui-text);
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; pointer-events: all;
+  }
+  /* ── PANTALLAS ── */
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    background: rgba(5, 2, 0, 0.97);
+    color: var(--ui-text);
+  }
+  .screen.hidden { display: none; }
+  .screen h1 {
+    font-size: 28px;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(255,140,40,0.8);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .screen p { font-size: 12px; color: #a08060; margin-bottom: 24px; }
+  .btn-menu {
+    background: transparent;
+    border: 1px solid var(--ui-border);
+    color: var(--ui-text);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    padding: 10px 28px;
+    margin: 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .btn-menu:hover, .btn-menu:active {
+    background: rgba(255,140,40,0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  /* ── INVENTARIO ── */
+  #inventory-screen {
+    padding: 20px;
+  }
+  #inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 52px);
+    gap: 6px;
+    margin: 16px 0;
+  }
+  .inv-slot {
+    width: 52px; height: 52px;
+    background: rgba(20,10,0,0.8);
+    border: 1px solid var(--ui-border);
+    border-radius: 4px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 10px; color: var(--ui-text);
+    cursor: pointer;
+  }
+  .inv-slot .slot-icon { font-size: 20px; }
+  .inv-slot .slot-count { font-size: 9px; color: #a08060; }
+  /* ── NOTIFICACIONES ── */
+  #notifications {
+    position: absolute; top: 90px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 30; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .notif {
+    background: rgba(10,5,0,0.9);
+    border: 1px solid var(--ui-border);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 11px; color: var(--ui-text);
+    animation: notifIn 0.3s ease, notifOut 0.5s ease 1.7s forwards;
+  }
+  @keyframes notifIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes notifOut { to { opacity:0; transform:translateY(-8px); } }
+  /* ── LOADING ── */
+  #loading-screen {
+    background: #080300;
+  }
+  #loading-bar-track {
+    width: 200px; height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px; margin-top: 20px;
+  }
+  #loading-bar-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 2px; width: 0%;
+    transition: width 0.1s;
+  }
+  /* ── CONSTRUCCIONES ── */
+  #build-menu {
+    position: absolute; bottom: 180px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+    padding: 10px;
+    z-index: 25; pointer-events: all;
+    display: flex; gap: 8px;
+  }
+  #build-menu.hidden { display: none; }
+  .build-btn {
+    background: rgba(20,10,0,0.8);
+    border: 1px solid var(--ui-border);
+    color: var(--ui-text);
+    font-size: 9px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+  }
+  .build-btn .build-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+
+  #day-transition {
+    position: absolute; inset: 0;
+    background: rgba(255,200,100,0.15);
+    z-index: 50; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 1s;
+  }
+  #day-transition.visible { opacity: 1; }
+  #day-transition span { font-size: 20px; color: var(--accent); letter-spacing: 3px; text-shadow: 0 0 20px rgba(255,160,50,0.8); }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-top">
+    <div id="hud-stats">
+      <div class="stat-bar">
+        <div class="stat-icon">❤️</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-hp" style="width:100%"></div></div>
+      </div>
+      <div class="stat-bar">
+        <div class="stat-icon">⚡</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-energy" style="width:100%"></div></div>
+      </div>
+      <div class="stat-bar">
+        <div class="stat-icon">🔥</div>
+        <div class="bar-track"><div class="bar-fill" id="bar-heat" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div id="hud-info">
+      <div id="hud-day">Día 1</div>
+      <div id="hud-time">Amanecer</div>
+    </div>
+  </div>
+  <div id="hud-resources">
+    <div class="res-item" id="res-wood">🪵 0</div>
+    <div class="res-item" id="res-stone">🪨 0</div>
+    <div class="res-item" id="res-food">🫐 0</div>
+    <div class="res-item" id="res-fragments">💎 0</div>
+  </div>
+</div>
+
+<!-- Notificaciones -->
+<div id="notifications"></div>
+
+<!-- Controles táctiles -->
+<div id="touch-controls">
+  <div id="joystick-zone">
+    <div id="joystick-base"></div>
+    <div id="joystick-thumb"></div>
+  </div>
+  <div id="action-buttons">
+    <button class="action-btn" id="btn-interact"><span>⚡</span>Acción</button>
+    <button class="action-btn" id="btn-run"><span>💨</span>Correr</button>
+    <button class="action-btn" id="btn-pickup"><span>👆</span>Coger</button>
+    <button class="action-btn" id="btn-inventory"><span>🎒</span>Bolsa</button>
+  </div>
+  <button id="btn-pause">⏸</button>
+</div>
+
+<!-- Menú construcción -->
+<div id="build-menu" class="hidden">
+  <button class="build-btn" id="build-chest"><span class="build-icon">📦</span>Cofre<br>(3🪵 2🪨)</button>
+  <button class="build-btn" id="build-tower"><span class="build-icon">🗼</span>Torre<br>(5🪵 5🪨)</button>
+  <button class="build-btn" id="build-shelter"><span class="build-icon">🏕️</span>Refugio<br>(8🪵 3🪨)</button>
+  <button class="build-btn" id="build-campfire"><span class="build-icon">🔥</span>Fogata<br>(4🪵 2🪨)</button>
+</div>
+
+<!-- Transición día -->
+<div id="day-transition"><span id="day-transition-text"></span></div>
+
+<!-- PANTALLAS -->
+<div id="loading-screen" class="screen">
+  <h1>⛺ ÚLTIMO</h1>
+  <h1>CAMPAMENTO</h1>
+  <p>Cargando el mundo...</p>
+  <div id="loading-bar-track"><div id="loading-bar-fill"></div></div>
+</div>
+
+<div id="main-menu" class="screen hidden">
+  <h1>⛺ ÚLTIMO</h1>
+  <h1>CAMPAMENTO</h1>
+  <p>Sobrevive la noche. O muere en el intento.</p>
+  <button class="btn-menu" id="btn-new-game">Nueva Partida</button>
+  <button class="btn-menu" id="btn-continue" style="display:none">Continuar</button>
+  <button class="btn-menu" id="btn-credits">Créditos</button>
+</div>
+
+<div id="pause-screen" class="screen hidden">
+  <h1>⏸ PAUSA</h1>
+  <button class="btn-menu" id="btn-resume">Reanudar</button>
+  <button class="btn-menu" id="btn-build">Construir</button>
+  <button class="btn-menu" id="btn-save-quit">Guardar y Salir</button>
+</div>
+
+<div id="inventory-screen" class="screen hidden">
+  <h1>🎒 INVENTARIO</h1>
+  <div id="inventory-grid"></div>
+  <button class="btn-menu" id="btn-close-inv">Cerrar</button>
+</div>
+
+<div id="gameover-screen" class="screen hidden">
+  <h1>☠️ FIN</h1>
+  <p id="gameover-msg">Has caído en la oscuridad...</p>
+  <button class="btn-menu" id="btn-restart">Reintentar</button>
+  <button class="btn-menu" id="btn-menu-go">Menú Principal</button>
+</div>
+
+<div id="credits-screen" class="screen hidden">
+  <h1>Créditos</h1>
+  <p style="text-align:center;line-height:2;color:#a08060;margin:10px 0 20px">
+    Último Campamento<br>
+    Juego de supervivencia 2D<br>
+    Generación procedural<br>
+    PWA • IndexedDB • Canvas API<br><br>
+    <span style="color:#f0d090">Sobrevive. Explora. Construye.</span>
+  </p>
+  <button class="btn-menu" id="btn-credits-back">Volver</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  ÚLTIMO CAMPAMENTO — Motor de Juego Completo
+// ═══════════════════════════════════════════════════════════════════
+
+'use strict';
+
+// ─── CONSTANTES ──────────────────────────────────────────────────
+const C = {
+  TILE: 32,
+  WORLD_W: 150, WORLD_H: 150,
+  FOV_RADIUS: 220,
+  DAY_DURATION: 480,   // segundos por día completo (8 min)
+  NIGHT_START: 0.65,   // fracción del día donde empieza la noche
+  DAWN_START: 0.9,
+  CAMPFIRE_LIGHT_BASE: 120,
+  CAMPFIRE_LIGHT_PER_LEVEL: 30,
+  ENEMY_SPAWN_DISTANCE: 350,
+  MAX_ENEMIES: 18,
+  AUTOSAVE_INTERVAL: 60000,
+  GAMEPAD_DEADZONE: 0.2,
+};
+
+// ─── UTILIDADES ──────────────────────────────────────────────────
+const Utils = {
+  lerp: (a, b, t) => a + (b - a) * t,
+  clamp: (v, min, max) => Math.min(max, Math.max(min, v)),
+  dist: (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by),
+  seededRand: function(seed) {
+    let s = seed;
+    return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+  },
+  hsla: (h, s, l, a=1) => `hsla(${h},${s}%,${l}%,${a})`,
+  rgba: (r,g,b,a=1) => `rgba(${r},${g},${b},${a})`,
+  notify(msg, color='#ffdd88') {
+    const el = document.createElement('div');
+    el.className = 'notif';
+    el.textContent = msg;
+    el.style.color = color;
+    document.getElementById('notifications').appendChild(el);
+    setTimeout(() => el.remove(), 2300);
+  },
+};
+
+// ─── SAVE MANAGER ────────────────────────────────────────────────
+class SaveManager {
+  constructor() {
+    this.db = null;
+    this.DB_NAME = 'UltimoCampamento';
+    this.DB_VER = 1;
+  }
+  async init() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(this.DB_NAME, this.DB_VER);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('saves')) db.createObjectStore('saves', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'id' });
+      };
+      req.onsuccess = e => { this.db = e.target.result; resolve(); };
+      req.onerror = () => { console.warn('IndexedDB no disponible'); resolve(); };
+    });
+  }
+  async save(data) {
+    if (!this.db) { localStorage.setItem('uc_save', JSON.stringify(data)); return; }
+    return new Promise(resolve => {
+      const tx = this.db.transaction('saves', 'readwrite');
+      tx.objectStore('saves').put({ id: 'slot1', ...data, savedAt: Date.now() });
+      tx.oncomplete = resolve;
+    });
+  }
+  async load() {
+    if (!this.db) {
+      const s = localStorage.getItem('uc_save');
+      return s ? JSON.parse(s) : null;
+    }
+    return new Promise(resolve => {
+      const tx = this.db.transaction('saves', 'readonly');
+      const req = tx.objectStore('saves').get('slot1');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  }
+  async hasSave() { const d = await this.load(); return !!d; }
+}
+
+// ─── INPUT MANAGER ───────────────────────────────────────────────
+class InputManager {
+  constructor() {
+    this.keys = {};
+    this.joystick = { x: 0, y: 0, active: false };
+    this.actions = { interact: false, run: false, pickup: false, inventory: false, pause: false, build: false };
+    this._joystickTouch = null;
+    this._joystickOrigin = { x: 0, y: 0 };
+    this._initKeyboard();
+    this._initTouch();
+    this._initButtons();
+  }
+  _initKeyboard() {
+    window.addEventListener('keydown', e => {
+      this.keys[e.code] = true;
+      if (e.code === 'KeyE' || e.code === 'Space') this.actions.interact = true;
+      if (e.code === 'ShiftLeft') this.actions.run = true;
+      if (e.code === 'KeyF') this.actions.pickup = true;
+      if (e.code === 'KeyI') this.actions.inventory = true;
+      if (e.code === 'Escape') this.actions.pause = true;
+      if (e.code === 'KeyB') this.actions.build = true;
+      e.preventDefault();
+    });
+    window.addEventListener('keyup', e => {
+      this.keys[e.code] = false;
+      if (e.code === 'ShiftLeft') this.actions.run = false;
+    });
+  }
+  _initTouch() {
+    const zone = document.getElementById('joystick-zone');
+    const thumb = document.getElementById('joystick-thumb');
+    const base = document.getElementById('joystick-base');
+    const R = 50;
+    zone.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      const rect = zone.getBoundingClientRect();
+      this._joystickTouch = t.identifier;
+      this._joystickOrigin = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+      this.joystick.active = true;
+    }, { passive: false });
+    zone.addEventListener('touchmove', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier !== this._joystickTouch) continue;
+        const dx = t.clientX - this._joystickOrigin.x;
+        const dy = t.clientY - this._joystickOrigin.y;
+        const mag = Math.hypot(dx, dy);
+        const nx = mag > R ? dx / mag : dx / R;
+        const ny = mag > R ? dy / mag : dy / R;
+        this.joystick.x = nx; this.joystick.y = ny;
+        const cx = Utils.clamp(dx, -R, R);
+        const cy = Utils.clamp(dy, -R, R);
+        thumb.style.transform = `translate(calc(-50% + ${cx}px), calc(-50% + ${cy}px))`;
+      }
+    }, { passive: false });
+    const endJoy = e => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === this._joystickTouch) {
+          this.joystick.x = 0; this.joystick.y = 0;
+          this.joystick.active = false;
+          this._joystickTouch = null;
+          thumb.style.transform = 'translate(-50%, -50%)';
+        }
+      }
+    };
+    zone.addEventListener('touchend', endJoy);
+    zone.addEventListener('touchcancel', endJoy);
+  }
+  _initButtons() {
+    const bind = (id, action, toggle=false) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('touchstart', e => { e.preventDefault(); this.actions[action] = true; el.classList.add('active'); }, { passive: false });
+      el.addEventListener('touchend', e => { e.preventDefault(); if (!toggle) this.actions[action] = false; el.classList.remove('active'); });
+      el.addEventListener('click', () => { this.actions[action] = true; setTimeout(() => this.actions[action] = false, 100); });
+    };
+    bind('btn-interact', 'interact');
+    bind('btn-run', 'run');
+    bind('btn-pickup', 'pickup');
+    bind('btn-inventory', 'inventory');
+    bind('btn-pause', 'pause');
+  }
+  getMovement() {
+    let x = this.joystick.x, y = this.joystick.y;
+    if (this.keys['ArrowLeft'] || this.keys['KeyA']) x -= 1;
+    if (this.keys['ArrowRight'] || this.keys['KeyD']) x += 1;
+    if (this.keys['ArrowUp'] || this.keys['KeyW']) y -= 1;
+    if (this.keys['ArrowDown'] || this.keys['KeyS']) y += 1;
+    const mag = Math.hypot(x, y);
+    if (mag > 1) { x /= mag; y /= mag; }
+    return { x, y };
+  }
+  consumeAction(action) { const v = this.actions[action]; this.actions[action] = false; return v; }
+}
+
+// ─── GAMEPAD MANAGER ─────────────────────────────────────────────
+class GamepadManager {
+  constructor(input) {
+    this.input = input;
+    this._prev = {};
+    this._connected = false;
+    window.addEventListener('gamepadconnected', () => { this._connected = true; Utils.notify('🎮 Control conectado'); });
+    window.addEventListener('gamepaddisconnected', () => { this._connected = false; });
+  }
+  update() {
+    if (!this._connected) return;
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const gp = pads[0]; if (!gp) return;
+    // Sticks
+    const lx = Math.abs(gp.axes[0]) > C.GAMEPAD_DEADZONE ? gp.axes[0] : 0;
+    const ly = Math.abs(gp.axes[1]) > C.GAMEPAD_DEADZONE ? gp.axes[1] : 0;
+    this.input.joystick.x = lx; this.input.joystick.y = ly;
+    this.input.joystick.active = Math.hypot(lx, ly) > C.GAMEPAD_DEADZONE;
+    // Botones: A=0 B=1 X=2 Y=3 Start=9
+    const btn = (i) => gp.buttons[i] && gp.buttons[i].pressed;
+    if (btn(0) && !this._prev[0]) this.input.actions.interact = true;
+    if (btn(1)) this.input.actions.run = true;
+    else if (!this.input.keys['ShiftLeft']) this.input.actions.run = false;
+    if (btn(2) && !this._prev[2]) this.input.actions.pickup = true;
+    if (btn(3) && !this._prev[3]) this.input.actions.inventory = true;
+    if (btn(9) && !this._prev[9]) this.input.actions.pause = true;
+    for (let i = 0; i < 10; i++) this._prev[i] = btn(i);
+  }
+}
+
+// ─── MUNDO ───────────────────────────────────────────────────────
+class World {
+  constructor(seed) {
+    this.seed = seed;
+    this.rand = Utils.seededRand(seed);
+    this.W = C.WORLD_W * C.TILE;
+    this.H = C.WORLD_H * C.TILE;
+    this.objects = [];  // { type, x, y, r, color, data }
+    this.explored = new Uint8Array(C.WORLD_W * C.WORLD_H);
+    this.interestPoints = [];
+    this._generate();
+  }
+
+  _r() { return this.rand(); }
+
+  _generate() {
+    const r = this._r.bind(this);
+    const W = this.W, H = this.H;
+
+    // Lagos
+    const NUM_LAKES = 8 + Math.floor(r() * 6);
+    for (let i = 0; i < NUM_LAKES; i++) {
+      const lx = 100 + r() * (W - 200);
+      const ly = 100 + r() * (H - 200);
+      const lw = 80 + r() * 160;
+      const lh = 60 + r() * 120;
+      this.objects.push({ type: 'lake', x: lx, y: ly, w: lw, h: lh,
+        color: Utils.rgba(30, 80, 180, 0.85), data: {} });
+    }
+
+    // Árboles
+    const NUM_TREES = 600 + Math.floor(r() * 200);
+    for (let i = 0; i < NUM_TREES; i++) {
+      const tx = 60 + r() * (W - 120);
+      const ty = 60 + r() * (H - 120);
+      if (this._nearCenter(tx, ty, 160)) continue;
+      if (this._inLake(tx, ty)) continue;
+      const rad = 10 + r() * 12;
+      this.objects.push({ type: 'tree', x: tx, y: ty, r: rad,
+        color: Utils.hsla(120 + r()*30, 50+r()*20, 20+r()*15),
+        topColor: Utils.hsla(120 + r()*30, 50+r()*20, 30+r()*10),
+        hp: 3, maxHp: 3, data: { wood: 2 + Math.floor(r()*3) } });
+    }
+
+    // Árboles gigantes (puntos de interés)
+    for (let i = 0; i < 8; i++) {
+      const tx = 100 + r() * (W - 200);
+      const ty = 100 + r() * (H - 200);
+      if (this._nearCenter(tx, ty, 200)) continue;
+      this.objects.push({ type: 'giant_tree', x: tx, y: ty, r: 28 + r()*12,
+        color: Utils.hsla(100, 55, 15), topColor: Utils.hsla(100,55,25),
+        hp: 8, maxHp: 8, data: { wood: 8, fragments: r() < 0.3 ? 1 : 0 } });
+      this.interestPoints.push({ x: tx, y: ty, label: 'Árbol Gigante' });
+    }
+
+    // Rocas
+    const NUM_ROCKS = 250 + Math.floor(r() * 100);
+    for (let i = 0; i < NUM_ROCKS; i++) {
+      const rx = 60 + r() * (W - 120);
+      const ry = 60 + r() * (H - 120);
+      if (this._nearCenter(rx, ry, 120)) continue;
+      if (this._inLake(rx, ry)) continue;
+      const rad = 7 + r() * 10;
+      this.objects.push({ type: 'rock', x: rx, y: ry, r: rad,
+        color: Utils.hsla(20, 5, 30 + r()*20),
+        hp: 2, maxHp: 2, data: { stone: 1 + Math.floor(r()*3) } });
+    }
+
+    // Arbustos
+    const NUM_BUSHES = 300 + Math.floor(r() * 100);
+    for (let i = 0; i < NUM_BUSHES; i++) {
+      const bx = 60 + r() * (W - 120);
+      const by = 60 + r() * (H - 120);
+      if (this._inLake(bx, by)) continue;
+      const rad = 8 + r() * 8;
+      this.objects.push({ type: 'bush', x: bx, y: by, r: rad,
+        color: Utils.hsla(100 + r()*30, 45+r()*20, 22+r()*12),
+        hp: 1, maxHp: 1, data: { food: 1 + Math.floor(r()*2), fragments: r() < 0.05 ? 1 : 0 } });
+    }
+
+    // Ruinas
+    for (let i = 0; i < 12; i++) {
+      const rx = 100 + r() * (W - 200);
+      const ry = 100 + r() * (H - 200);
+      if (this._nearCenter(rx, ry, 200) || this._inLake(rx, ry)) continue;
+      this.objects.push({ type: 'ruin', x: rx, y: ry, r: 20 + r()*15,
+        color: Utils.rgba(90, 80, 70, 0.8), data: { loot: true, looted: false,
+        wood: Math.floor(r()*5), stone: Math.floor(r()*4), fragments: r()<0.4?1:0 } });
+      this.interestPoints.push({ x: rx, y: ry, label: 'Ruinas' });
+    }
+
+    // Cofres ocultos
+    for (let i = 0; i < 20; i++) {
+      const cx = 100 + r() * (W - 200);
+      const cy = 100 + r() * (H - 200);
+      if (this._nearCenter(cx, cy, 200) || this._inLake(cx, cy)) continue;
+      this.objects.push({ type: 'chest', x: cx, y: cy, r: 10,
+        color: Utils.rgba(160, 120, 40, 0.9), data: {
+        opened: false,
+        wood: Math.floor(r()*8), stone: Math.floor(r()*6),
+        food: Math.floor(r()*5), fragments: r()<0.5?1:0 } });
+      this.interestPoints.push({ x: cx, y: cy, label: 'Cofre' });
+    }
+
+    // Campamentos abandonados
+    for (let i = 0; i < 8; i++) {
+      const ax = 100 + r() * (W - 200);
+      const ay = 100 + r() * (H - 200);
+      if (this._nearCenter(ax, ay, 200) || this._inLake(ax, ay)) continue;
+      this.objects.push({ type: 'abandoned_camp', x: ax, y: ay, r: 18,
+        color: Utils.rgba(100, 70, 30, 0.7), data: {
+        looted: false, wood: 5 + Math.floor(r()*5), fragments: 1 } });
+      this.interestPoints.push({ x: ax, y: ay, label: 'Campamento' });
+    }
+
+    // Lagos ocultos pequeños (extra)
+    for (let i = 0; i < 15; i++) {
+      const lx = 80 + r() * (W - 160);
+      const ly = 80 + r() * (H - 160);
+      if (this._nearCenter(lx, ly, 300)) continue;
+      const lw = 30 + r() * 60;
+      const lh = 25 + r() * 50;
+      this.objects.push({ type: 'lake', x: lx, y: ly, w: lw, h: lh,
+        color: Utils.rgba(20, 60, 160, 0.8), data: {} });
+      this.interestPoints.push({ x: lx, y: ly, label: 'Lago Oculto' });
+    }
+  }
+
+  _nearCenter(x, y, dist) {
+    return Utils.dist(x, y, this.W/2, this.H/2) < dist;
+  }
+  _inLake(x, y) {
+    return this.objects.some(o => o.type === 'lake' &&
+      Math.abs(o.x - x) < (o.w||80)/2 && Math.abs(o.y - y) < (o.h||60)/2);
+  }
+
+  explore(px, py) {
+    const r = C.FOV_RADIUS;
+    const tx1 = Math.max(0, Math.floor((px - r) / C.TILE));
+    const tx2 = Math.min(C.WORLD_W - 1, Math.ceil((px + r) / C.TILE));
+    const ty1 = Math.max(0, Math.floor((py - r) / C.TILE));
+    const ty2 = Math.min(C.WORLD_H - 1, Math.ceil((py + r) / C.TILE));
+    for (let ty = ty1; ty <= ty2; ty++) {
+      for (let tx = tx1; tx <= tx2; tx++) {
+        const wx = tx * C.TILE + C.TILE/2;
+        const wy = ty * C.TILE + C.TILE/2;
+        if (Utils.dist(px, py, wx, wy) <= r) {
+          this.explored[ty * C.WORLD_W + tx] = 1;
+        }
+      }
+    }
+  }
+
+  isTileExplored(tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= C.WORLD_W || ty >= C.WORLD_H) return false;
+    return this.explored[ty * C.WORLD_W + tx] === 1;
+  }
+
+  getObjectsInRect(x1, y1, x2, y2) {
+    return this.objects.filter(o => o.x >= x1 && o.x <= x2 && o.y >= y1 && o.y <= y2);
+  }
+
+  getNearbyObjects(px, py, radius) {
+    const r2 = radius * radius;
+    return this.objects.filter(o => {
+      const dx = o.x - px, dy = o.y - py;
+      return dx*dx + dy*dy <= r2;
+    });
+  }
+
+  removeObject(obj) {
+    const idx = this.objects.indexOf(obj);
+    if (idx >= 0) this.objects.splice(idx, 1);
+  }
+
+  serialize() {
+    return {
+      seed: this.seed,
+      explored: Array.from(this.explored),
+      objects: this.objects.map(o => ({ ...o })),
+    };
+  }
+
+  static deserialize(data) {
+    const w = new World(data.seed);
+    w.explored = new Uint8Array(data.explored);
+    w.objects = data.objects;
+    return w;
+  }
+}
+
+// ─── INVENTARIO ──────────────────────────────────────────────────
+class Inventory {
+  constructor(capacity = 20) {
+    this.capacity = capacity;
+    this.slots = Array(capacity).fill(null);
+    this.resources = { wood: 0, stone: 0, food: 0, fragments: 0 };
+  }
+  add(type, amount = 1) {
+    if (this.resources.hasOwnProperty(type)) {
+      this.resources[type] += amount;
+      return true;
+    }
+    return false;
+  }
+  spend(type, amount) {
+    if (this.resources[type] >= amount) { this.resources[type] -= amount; return true; }
+    return false;
+  }
+  has(type, amount) { return this.resources[type] >= amount; }
+  serialize() { return { resources: { ...this.resources } }; }
+  static deserialize(data) {
+    const inv = new Inventory();
+    inv.resources = { ...data.resources };
+    return inv;
+  }
+}
+
+// ─── FOGATA ───────────────────────────────────────────────────────
+class Campfire {
+  constructor(x, y, level = 1) {
+    this.x = x; this.y = y;
+    this.level = level;
+    this.wood = 10;
+    this.maxWood = 20 + level * 10;
+    this.flickerAngle = 0;
+    this.type = 'campfire';
+    this.r = 12;
+  }
+  get lightRadius() { return C.CAMPFIRE_LIGHT_BASE + this.level * C.CAMPFIRE_LIGHT_PER_LEVEL; }
+  get woodBurnRate() { return Math.max(0.02, 0.06 - this.level * 0.008); }
+  get isAlive() { return this.wood > 0; }
+  get protectionRadius() { return this.lightRadius * 0.9; }
+  update(dt) {
+    this.flickerAngle += dt * 8;
+    if (this.isAlive) { this.wood = Math.max(0, this.wood - this.woodBurnRate * dt); }
+  }
+  addWood(amount) {
+    this.wood = Math.min(this.maxWood, this.wood + amount);
+    return amount;
+  }
+  upgrade() {
+    if (this.level < 5) { this.level++; return true; }
+    return false;
+  }
+  serialize() { return { x: this.x, y: this.y, level: this.level, wood: this.wood, type: this.type }; }
+  static deserialize(data) {
+    const cf = new Campfire(data.x, data.y, data.level);
+    cf.wood = data.wood;
+    return cf;
+  }
+}
+
+// ─── JUGADOR ──────────────────────────────────────────────────────
+class Player {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.hp = 100; this.maxHp = 100;
+    this.energy = 100; this.maxEnergy = 100;
+    this.heat = 100; this.maxHeat = 100;
+    this.speed = 120;
+    this.r = 10;
+    this.facing = { x: 0, y: 1 };
+    this.isRunning = false;
+    this.isDead = false;
+    this.walkAnim = 0;
+    this.interactCooldown = 0;
+    this.hurtFlash = 0;
+  }
+  update(dt, input, world, constructions, dayNight) {
+    if (this.isDead) return;
+    const mv = input.getMovement();
+    this.isRunning = (input.actions.run || input.keys['ShiftLeft']) && (this.energy > 5);
+    const spd = this.isRunning ? this.speed * 1.7 : this.speed;
+    if (Math.abs(mv.x) > 0.05 || Math.abs(mv.y) > 0.05) {
+      this.facing.x = mv.x; this.facing.y = mv.y;
+      this.walkAnim += dt * (this.isRunning ? 12 : 7);
+      let nx = this.x + mv.x * spd * dt;
+      let ny = this.y + mv.y * spd * dt;
+      // Límites del mundo
+      nx = Utils.clamp(nx, this.r, world.W - this.r);
+      ny = Utils.clamp(ny, this.r, world.H - this.r);
+      // Colisión con objetos sólidos
+      const near = world.getNearbyObjects(nx, ny, 60);
+      for (const o of near) {
+        if (o.type === 'tree' || o.type === 'giant_tree' || o.type === 'rock') {
+          const d = Utils.dist(nx, ny, o.x, o.y);
+          const minD = this.r + (o.r || 12);
+          if (d < minD) {
+            const angle = Math.atan2(ny - o.y, nx - o.x);
+            nx = o.x + Math.cos(angle) * minD;
+            ny = o.y + Math.sin(angle) * minD;
+          }
+        }
+        if (o.type === 'lake') {
+          const lw = (o.w||80)/2, lh = (o.h||60)/2;
+          if (Math.abs(nx - o.x) < lw + this.r && Math.abs(ny - o.y) < lh + this.r) {
+            // empujar fuera del lago
+            const dx = nx - o.x, dy = ny - o.y;
+            const ex = Math.sign(dx) * (lw + this.r) - dx;
+            const ey = Math.sign(dy) * (lh + this.r) - dy;
+            if (Math.abs(ex) < Math.abs(ey)) nx += ex; else ny += ey;
+          }
+        }
+      }
+      this.x = nx; this.y = ny;
+    }
+    // Energía
+    if (this.isRunning && (Math.abs(mv.x) > 0.05 || Math.abs(mv.y) > 0.05)) {
+      this.energy = Math.max(0, this.energy - 12 * dt);
+    } else {
+      this.energy = Math.min(this.maxEnergy, this.energy + 3 * dt);
+    }
+    // Calor (noche enfría)
+    const isNight = dayNight.timeOfDay >= C.NIGHT_START && dayNight.timeOfDay < C.DAWN_START;
+    let heatDrain = isNight ? 4 * dt : 0.5 * dt;
+    // Cerca de fogata: calentar
+    for (const cf of constructions.filter(c => c.type === 'campfire' && c.isAlive)) {
+      const d = Utils.dist(this.x, this.y, cf.x, cf.y);
+      if (d < cf.lightRadius) { heatDrain = -8 * dt * (1 - d/cf.lightRadius); break; }
+    }
+    this.heat = Utils.clamp(this.heat - heatDrain, 0, this.maxHeat);
+    if (this.heat <= 0) this.hp = Math.max(0, this.hp - 5 * dt);
+    // Comer (pasivo, si tiene comida)
+    if (this.hp < this.maxHp && this.energy < this.maxEnergy) {
+      // natural regen pequeño
+    }
+    // Cooldown interacción
+    if (this.interactCooldown > 0) this.interactCooldown -= dt;
+    if (this.hurtFlash > 0) this.hurtFlash -= dt;
+    if (this.hp <= 0) this.isDead = true;
+  }
+  takeDamage(dmg) {
+    this.hp = Math.max(0, this.hp - dmg);
+    this.hurtFlash = 0.3;
+    if (this.hp <= 0) this.isDead = true;
+  }
+  heal(amount) { this.hp = Math.min(this.maxHp, this.hp + amount); }
+  serialize() {
+    return { x: this.x, y: this.y, hp: this.hp, energy: this.energy, heat: this.heat };
+  }
+  static deserialize(data) {
+    const p = new Player(data.x, data.y);
+    p.hp = data.hp; p.energy = data.energy; p.heat = data.heat;
+    return p;
+  }
+}
+
+// ─── ENEMIGOS ──────────────────────────────────────────────────────
+class Enemy {
+  static create(type, x, y) {
+    const e = new Enemy(type, x, y);
+    return e;
+  }
+  constructor(type, x, y) {
+    this.type = type;
+    this.x = x; this.y = y;
+    this.angle = 0;
+    this.flickerT = Math.random() * Math.PI * 2;
+    const configs = {
+      shadow: { hp: 30, speed: 55, dmg: 8, r: 12, color: Utils.rgba(30,0,60,0.9), detectR: 280 },
+      wolf:   { hp: 60, speed: 90, dmg: 15, r: 14, color: Utils.rgba(50,40,30,0.9), detectR: 320 },
+      beast:  { hp: 120, speed: 70, dmg: 25, r: 18, color: Utils.rgba(40,10,10,0.95), detectR: 350 },
+    };
+    const cfg = configs[type] || configs.shadow;
+    Object.assign(this, cfg);
+    this.maxHp = this.hp;
+    this.attackCooldown = 0;
+    this.isDead = false;
+    this.alertT = 0;
+  }
+  update(dt, player, constructions) {
+    if (this.isDead) return;
+    this.flickerT += dt * 3;
+    if (this.attackCooldown > 0) this.attackCooldown -= dt;
+    // Huir de fogatas activas
+    for (const cf of constructions.filter(c => c.type === 'campfire' && c.isAlive)) {
+      const d = Utils.dist(this.x, this.y, cf.x, cf.y);
+      if (d < cf.protectionRadius * 1.1) {
+        const angle = Math.atan2(this.y - cf.y, this.x - cf.x);
+        this.x += Math.cos(angle) * this.speed * 0.8 * dt;
+        this.y += Math.sin(angle) * this.speed * 0.8 * dt;
+        return;
+      }
+    }
+    // Buscar jugador
+    const dx = player.x - this.x, dy = player.y - this.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < this.detectR) {
+      this.alertT += dt;
+      const nx = dx/dist, ny = dy/dist;
+      this.x += nx * this.speed * dt;
+      this.y += ny * this.speed * dt;
+      // Atacar
+      if (dist < this.r + player.r + 5 && this.attackCooldown <= 0) {
+        player.takeDamage(this.dmg);
+        this.attackCooldown = 1.2;
+      }
+    } else {
+      this.alertT = 0;
+      // Vagar aleatoriamente
+      this.angle += (Math.random() - 0.5) * 2 * dt;
+      this.x += Math.cos(this.angle) * 20 * dt;
+      this.y += Math.sin(this.angle) * 20 * dt;
+    }
+  }
+  takeDamage(dmg) {
+    this.hp -= dmg;
+    if (this.hp <= 0) this.isDead = true;
+  }
+}
+
+// ─── DÍA/NOCHE ───────────────────────────────────────────────────
+class DayNightCycle {
+  constructor() {
+    this.day = 1;
+    this.timeOfDay = 0.15; // comienza amanecer
+    this.speed = 1 / C.DAY_DURATION;
+    this._prevNight = false;
+  }
+  update(dt) {
+    this.timeOfDay += this.speed * dt;
+    if (this.timeOfDay >= 1) { this.timeOfDay -= 1; this.day++; return true; }
+    return false;
+  }
+  get isNight() { return this.timeOfDay >= C.NIGHT_START && this.timeOfDay < C.DAWN_START; }
+  get isDawn() { return this.timeOfDay >= C.DAWN_START || this.timeOfDay < 0.2; }
+  get sunBrightness() {
+    const t = this.timeOfDay;
+    if (t < 0.2) return Utils.lerp(0.2, 1, t / 0.2);
+    if (t < C.NIGHT_START) return 1;
+    if (t < C.NIGHT_START + 0.08) return Utils.lerp(1, 0.05, (t - C.NIGHT_START) / 0.08);
+    if (t < C.DAWN_START) return 0.05;
+    return Utils.lerp(0.05, 0.3, (t - C.DAWN_START) / (1 - C.DAWN_START));
+  }
+  get skyColor() {
+    const t = this.timeOfDay;
+    const bright = this.sunBrightness;
+    if (t < 0.2 || t > C.DAWN_START) return `rgb(${Math.floor(bright*40)},${Math.floor(bright*20)},${Math.floor(bright*5)})`;
+    if (t < C.NIGHT_START) return `rgb(${Math.floor(bright*15+5)},${Math.floor(bright*10+2)},${Math.floor(bright*3)})`;
+    return `rgb(2,0,5)`;
+  }
+  get timeLabel() {
+    const t = this.timeOfDay;
+    if (t < 0.15) return 'Madrugada';
+    if (t < 0.25) return 'Amanecer';
+    if (t < 0.6) return 'Día';
+    if (t < C.NIGHT_START) return 'Atardecer';
+    if (t < C.DAWN_START) return 'Noche';
+    return 'Madrugada';
+  }
+  serialize() { return { day: this.day, timeOfDay: this.timeOfDay }; }
+  static deserialize(data) {
+    const d = new DayNightCycle();
+    d.day = data.day; d.timeOfDay = data.timeOfDay;
+    return d;
+  }
+}
+
+// ─── RENDERIZADOR ─────────────────────────────────────────────────
+class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d', { alpha: false });
+    this.W = 0; this.H = 0;
+    this.camX = 0; this.camY = 0;
+    this._lightCanvas = document.createElement('canvas');
+    this._lightCtx = this._lightCanvas.getContext('2d');
+    this.resize();
+  }
+  resize() {
+    this.W = window.innerWidth;
+    this.H = window.innerHeight;
+    this.canvas.width = this.W;
+    this.canvas.height = this.H;
+    this._lightCanvas.width = this.W;
+    this._lightCanvas.height = this.H;
+  }
+  setCamera(px, py, worldW, worldH) {
+    this.camX = Utils.clamp(px - this.W/2, 0, worldW - this.W);
+    this.camY = Utils.clamp(py - this.H/2, 0, worldH - this.H);
+  }
+  toScreen(wx, wy) { return { x: wx - this.camX, y: wy - this.camY }; }
+  inView(wx, wy, margin = 60) {
+    return wx >= this.camX - margin && wx <= this.camX + this.W + margin &&
+           wy >= this.camY - margin && wy <= this.camY + this.H + margin;
+  }
+
+  render(game) {
+    const { ctx, W, H } = this;
+    const { world, player, constructions, enemies, dayNight } = game;
+    const bright = dayNight.sunBrightness;
+
+    ctx.save();
+    // Fondo
+    ctx.fillStyle = dayNight.skyColor;
+    ctx.fillRect(0, 0, W, H);
+
+    // Terreno base
+    this._drawTerrain(world, bright);
+    // Niebla de guerra
+    this._drawFogOfWar(world, player);
+    // Objetos del mundo
+    this._drawObjects(world, player, bright);
+    // Construcciones
+    for (const cf of constructions) {
+      if (!this.inView(cf.x, cf.y)) continue;
+      this._drawConstruction(cf, bright, dayNight);
+    }
+    // Enemigos
+    for (const e of enemies) {
+      if (!e.isDead && this.inView(e.x, e.y)) this._drawEnemy(e, bright);
+    }
+    // Jugador
+    this._drawPlayer(player, bright);
+    // Luz (overlay nocturno)
+    this._drawLightOverlay(player, constructions, dayNight);
+
+    ctx.restore();
+  }
+
+  _drawTerrain(world, bright) {
+    const { ctx, camX, camY, W, H } = this;
+    // Suelo (hierba)
+    const b = Math.floor(bright * 80 + 5);
+    const g = Math.floor(bright * 45 + 5);
+    ctx.fillStyle = `rgb(${b*0.15|0},${g},${b*0.08|0})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // Lagos
+    for (const o of world.objects) {
+      if (o.type !== 'lake') continue;
+      if (!this.inView(o.x, o.y, (o.w||80))) continue;
+      const s = this.toScreen(o.x, o.y);
+      const lw = (o.w||80)/2, lh = (o.h||60)/2;
+      ctx.save();
+      ctx.fillStyle = o.color;
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y, lw, lh, 0, 0, Math.PI*2);
+      ctx.fill();
+      // Brillo del agua
+      ctx.fillStyle = `rgba(100,150,255,${bright*0.1})`;
+      ctx.beginPath();
+      ctx.ellipse(s.x - lw*0.2, s.y - lh*0.2, lw*0.3, lh*0.2, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  _drawFogOfWar(world, player) {
+    const { ctx, camX, camY, W, H } = this;
+    // Área no explorada → negro oscuro
+    const tileSize = C.TILE;
+    const tx1 = Math.max(0, Math.floor(camX / tileSize));
+    const tx2 = Math.min(C.WORLD_W - 1, Math.ceil((camX + W) / tileSize));
+    const ty1 = Math.max(0, Math.floor(camY / tileSize));
+    const ty2 = Math.min(C.WORLD_H - 1, Math.ceil((camY + H) / tileSize));
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    for (let ty = ty1; ty <= ty2; ty++) {
+      for (let tx = tx1; tx <= tx2; tx++) {
+        if (!world.isTileExplored(tx, ty)) {
+          ctx.fillRect(tx * tileSize - camX, ty * tileSize - camY, tileSize, tileSize);
+        }
+      }
+    }
+  }
+
+  _drawObjects(world, player, bright) {
+    const { ctx, camX, camY, W, H } = this;
+    const vx1 = camX - 60, vx2 = camX + W + 60;
+    const vy1 = camY - 60, vy2 = camY + H + 60;
+    const visible = world.getObjectsInRect(vx1, vy1, vx2, vy2);
+
+    // Ordenar por Y para depth sorting
+    visible.sort((a, b) => a.y - b.y);
+
+    for (const o of visible) {
+      if (o.type === 'lake') continue;
+      const s = this.toScreen(o.x, o.y);
+      // Verificar explorado
+      const tx = Math.floor(o.x / C.TILE), ty = Math.floor(o.y / C.TILE);
+      if (!world.isTileExplored(tx, ty)) continue;
+
+      const dimColor = (col, factor) => {
+        if (factor >= 0.95) return col;
+        // Simplificado: devolver con alpha reducido
+        return col;
+      };
+
+      switch (o.type) {
+        case 'tree': case 'giant_tree': {
+          const r = o.r || 12;
+          const isGiant = o.type === 'giant_tree';
+          // Sombra del árbol
+          ctx.save();
+          ctx.fillStyle = `rgba(0,0,0,${bright * 0.3})`;
+          ctx.beginPath();
+          ctx.ellipse(s.x + r*0.4, s.y + r*0.5, r*0.9, r*0.4, 0, 0, Math.PI*2);
+          ctx.fill();
+          // Tronco
+          ctx.fillStyle = Utils.rgba(60 + bright*30, 40 + bright*20, 20 + bright*10);
+          ctx.beginPath();
+          ctx.ellipse(s.x, s.y + r*0.3, r*0.25, r*0.35, 0, 0, Math.PI*2);
+          ctx.fill();
+          // Copa
+          ctx.fillStyle = o.color;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y - r*0.1, r, 0, Math.PI*2);
+          ctx.fill();
+          // Capa superior más brillante
+          ctx.fillStyle = o.topColor;
+          ctx.beginPath();
+          ctx.arc(s.x - r*0.2, s.y - r*0.3, r*0.5, 0, Math.PI*2);
+          ctx.fill();
+          if (isGiant) {
+            // Borde dorado para árbol gigante
+            ctx.strokeStyle = `rgba(200,180,50,${bright*0.5})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y - r*0.1, r + 2, 0, Math.PI*2);
+            ctx.stroke();
+          }
+          ctx.restore();
+          break;
+        }
+        case 'rock': {
+          const r = o.r || 8;
+          ctx.save();
+          ctx.fillStyle = `rgba(0,0,0,${bright*0.25})`;
+          ctx.beginPath();
+          ctx.ellipse(s.x + r*0.3, s.y + r*0.5, r*0.9, r*0.3, 0, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle = o.color;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, r, 0, Math.PI*2);
+          ctx.fill();
+          // Cara superior
+          ctx.fillStyle = `rgba(255,255,255,${bright*0.1})`;
+          ctx.beginPath();
+          ctx.arc(s.x - r*0.2, s.y - r*0.25, r*0.45, 0, Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+          break;
+        }
+        case 'bush': {
+          const r = o.r || 8;
+          ctx.save();
+          ctx.fillStyle = o.color;
+          // 3 círculos superpuestos
+          ctx.beginPath(); ctx.arc(s.x - r*0.4, s.y + r*0.2, r*0.65, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(s.x + r*0.4, s.y + r*0.1, r*0.65, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(s.x, s.y - r*0.1, r*0.7, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+          break;
+        }
+        case 'ruin': {
+          const r = o.r || 18;
+          ctx.save();
+          ctx.fillStyle = o.color;
+          // Dibujar como polígono irregular (ruinas)
+          ctx.beginPath();
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const jitter = r * (0.6 + 0.4 * Math.sin(i * 2.5));
+            const px2 = s.x + Math.cos(angle) * jitter;
+            const py2 = s.y + Math.sin(angle) * jitter * 0.5;
+            i === 0 ? ctx.moveTo(px2, py2) : ctx.lineTo(px2, py2);
+          }
+          ctx.closePath(); ctx.fill();
+          if (!o.data.looted) {
+            ctx.fillStyle = `rgba(255,230,100,${bright*0.7 + 0.2})`;
+            ctx.font = '14px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('?', s.x, s.y + 4);
+          }
+          ctx.restore();
+          break;
+        }
+        case 'chest': {
+          if (o.data.opened) break;
+          ctx.save();
+          ctx.fillStyle = o.color;
+          ctx.beginPath();
+          ctx.roundRect(s.x - 10, s.y - 8, 20, 14, 3);
+          ctx.fill();
+          ctx.fillStyle = `rgba(200,160,60,1)`;
+          ctx.beginPath();
+          ctx.roundRect(s.x - 10, s.y - 10, 20, 8, 3);
+          ctx.fill();
+          ctx.fillStyle = `rgba(255,220,80,${bright*0.8+0.2})`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y - 4, 3, 0, Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+          break;
+        }
+        case 'abandoned_camp': {
+          const r = o.r || 18;
+          ctx.save();
+          ctx.fillStyle = `rgba(80,55,20,0.7)`;
+          ctx.beginPath(); ctx.ellipse(s.x, s.y, r, r*0.6, 0, 0, Math.PI*2); ctx.fill();
+          // Fogata apagada
+          ctx.fillStyle = `rgba(60,50,40,0.9)`;
+          ctx.beginPath(); ctx.arc(s.x, s.y - 2, 6, 0, Math.PI*2); ctx.fill();
+          if (!o.data.looted) {
+            ctx.fillStyle = `rgba(255,200,80,${bright*0.8+0.15})`;
+            ctx.font = '12px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('!', s.x, s.y + 4);
+          }
+          ctx.restore();
+          break;
+        }
+      }
+    }
+  }
+
+  _drawConstruction(cf, bright, dayNight) {
+    const { ctx } = this;
+    const s = this.toScreen(cf.x, cf.y);
+    if (cf.type === 'campfire') {
+      const alive = cf.isAlive;
+      const flicker = alive ? Math.sin(cf.flickerAngle) * 0.15 : 0;
+      // Base de piedras
+      ctx.fillStyle = `rgba(80,70,60,0.9)`;
+      for (let i = 0; i < 6; i++) {
+        const a = (i/6)*Math.PI*2;
+        ctx.beginPath();
+        ctx.arc(s.x + Math.cos(a)*10, s.y + Math.sin(a)*5, 4, 0, Math.PI*2);
+        ctx.fill();
+      }
+      if (alive) {
+        // Llamas
+        const intensity = (cf.wood / cf.maxWood);
+        const fh = 16 + flicker * 6 + intensity * 8;
+        ctx.save();
+        // Llama exterior
+        ctx.fillStyle = `rgba(255,${100+Math.floor(intensity*80)},0,0.7)`;
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y - fh*0.4, 9 + flicker*3, fh*0.55, 0, 0, Math.PI*2);
+        ctx.fill();
+        // Llama media
+        ctx.fillStyle = `rgba(255,${180+Math.floor(flicker*40)},30,0.85)`;
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y - fh*0.5, 6, fh*0.4, 0, 0, Math.PI*2);
+        ctx.fill();
+        // Núcleo
+        ctx.fillStyle = `rgba(255,255,180,0.9)`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y - 4, 3 + flicker, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+        // Indicador nivel
+        ctx.fillStyle = `rgba(255,200,80,${bright*0.7+0.3})`;
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Nv${cf.level}`, s.x, s.y - fh - 4);
+      } else {
+        ctx.fillStyle = 'rgba(80,80,80,0.6)';
+        ctx.beginPath(); ctx.arc(s.x, s.y - 3, 5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = `rgba(255,100,80,0.8)`;
+        ctx.font = '10px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('!sin leña!', s.x, s.y - 16);
+      }
+    } else if (cf.type === 'chest_built') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(140,100,40,0.9)';
+      ctx.beginPath(); ctx.roundRect(s.x - 12, s.y - 8, 24, 18, 3); ctx.fill();
+      ctx.fillStyle = 'rgba(180,140,60,1)';
+      ctx.beginPath(); ctx.roundRect(s.x - 12, s.y - 12, 24, 10, 3); ctx.fill();
+      ctx.fillStyle = 'rgba(255,220,80,0.9)';
+      ctx.beginPath(); ctx.arc(s.x, s.y - 6, 3, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    } else if (cf.type === 'tower') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(90,75,55,0.9)';
+      ctx.beginPath(); ctx.roundRect(s.x - 10, s.y - 30, 20, 30, 2); ctx.fill();
+      ctx.fillStyle = 'rgba(110,90,65,0.9)';
+      ctx.beginPath(); ctx.roundRect(s.x - 13, s.y - 36, 26, 10, 2); ctx.fill();
+      ctx.restore();
+    } else if (cf.type === 'shelter') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(100,80,50,0.85)';
+      ctx.beginPath(); ctx.roundRect(s.x - 22, s.y - 10, 44, 22, 4); ctx.fill();
+      // Techo triangular
+      ctx.fillStyle = 'rgba(80,55,30,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(s.x - 26, s.y - 10);
+      ctx.lineTo(s.x, s.y - 28);
+      ctx.lineTo(s.x + 26, s.y - 10);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  _drawEnemy(e, bright) {
+    const { ctx } = this;
+    const s = this.toScreen(e.x, e.y);
+    const flick = 0.7 + Math.sin(e.flickerT) * 0.3;
+    ctx.save();
+    ctx.globalAlpha = flick;
+    switch (e.type) {
+      case 'shadow': {
+        // Sombra difusa
+        ctx.fillStyle = `rgba(30,0,70,0.8)`;
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, e.r * 1.2, e.r * 0.8, 0, 0, Math.PI*2);
+        ctx.fill();
+        // Ojos rojos
+        ctx.fillStyle = `rgba(255,50,50,${0.8 + Math.sin(e.flickerT*2)*0.2})`;
+        ctx.beginPath(); ctx.arc(s.x - 4, s.y - 2, 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s.x + 4, s.y - 2, 2, 0, Math.PI*2); ctx.fill();
+        break;
+      }
+      case 'wolf': {
+        ctx.fillStyle = e.color;
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, e.r, e.r * 0.7, 0, 0, Math.PI*2); ctx.fill();
+        // Cabeza
+        ctx.beginPath(); ctx.arc(s.x + e.r * 0.5, s.y - 3, e.r * 0.5, 0, Math.PI*2); ctx.fill();
+        // Orejas
+        ctx.fillStyle = 'rgba(80,60,40,0.9)';
+        ctx.beginPath(); ctx.arc(s.x + e.r * 0.7, s.y - 9, 4, 0, Math.PI*2); ctx.fill();
+        // Ojos
+        ctx.fillStyle = 'rgba(255,200,0,0.9)';
+        ctx.beginPath(); ctx.arc(s.x + e.r * 0.5 + 3, s.y - 3, 2, 0, Math.PI*2); ctx.fill();
+        break;
+      }
+      case 'beast': {
+        ctx.fillStyle = e.color;
+        ctx.beginPath(); ctx.arc(s.x, s.y, e.r, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = `rgba(60,15,15,0.9)`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, e.r * 0.7, 0, Math.PI*2); ctx.fill();
+        // Cuernos
+        ctx.strokeStyle = `rgba(150,30,30,0.9)`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(s.x - 6, s.y - e.r); ctx.lineTo(s.x - 10, s.y - e.r - 10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s.x + 6, s.y - e.r); ctx.lineTo(s.x + 10, s.y - e.r - 10); ctx.stroke();
+        // Ojos
+        ctx.fillStyle = 'rgba(255,0,0,0.95)';
+        ctx.beginPath(); ctx.arc(s.x - 5, s.y - 3, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s.x + 5, s.y - 3, 3, 0, Math.PI*2); ctx.fill();
+        break;
+      }
+    }
+    // Barra de vida
+    const hpPct = e.hp / e.maxHp;
+    const bw = e.r * 2.5;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(s.x - bw/2, s.y - e.r - 8, bw, 4);
+    ctx.fillStyle = `rgb(${Math.floor((1-hpPct)*255)},${Math.floor(hpPct*200)},30)`;
+    ctx.fillRect(s.x - bw/2, s.y - e.r - 8, bw * hpPct, 4);
+    ctx.restore();
+  }
+
+  _drawPlayer(player, bright) {
+    const { ctx } = this;
+    const s = this.toScreen(player.x, player.y);
+    const r = player.r;
+    const walkOsc = Math.sin(player.walkAnim) * 2;
+
+    ctx.save();
+    // Flash daño
+    if (player.hurtFlash > 0) {
+      ctx.fillStyle = `rgba(255,50,50,${player.hurtFlash * 3})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, r + 6, 0, Math.PI*2); ctx.fill();
+    }
+    // Sombra del jugador
+    ctx.fillStyle = `rgba(0,0,0,${bright * 0.3})`;
+    ctx.beginPath(); ctx.ellipse(s.x + 2, s.y + r*0.8, r*0.7, r*0.25, 0, 0, Math.PI*2); ctx.fill();
+    // Cuerpo
+    ctx.fillStyle = '#c8a060';
+    ctx.beginPath(); ctx.ellipse(s.x, s.y + walkOsc * 0.3, r*0.7, r*1.0, 0, 0, Math.PI*2); ctx.fill();
+    // Cabeza
+    ctx.fillStyle = '#e0b880';
+    ctx.beginPath(); ctx.arc(s.x, s.y - r * 0.5, r * 0.7, 0, Math.PI*2); ctx.fill();
+    // Capa/ropa
+    ctx.fillStyle = '#6b4a28';
+    ctx.beginPath(); ctx.ellipse(s.x, s.y + walkOsc * 0.3, r*0.75, r*0.65, 0, 0, Math.PI*2); ctx.fill();
+    // Ojos (mirar dirección)
+    const fmag = Math.hypot(player.facing.x, player.facing.y);
+    const fxn = fmag > 0 ? player.facing.x/fmag : 0;
+    const fyn = fmag > 0 ? player.facing.y/fmag : 1;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(s.x + fxn*3 - fyn*2, s.y - r*0.5 + fyn*2 + fxn*0, 2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s.x + fxn*3 + fyn*2, s.y - r*0.5 + fyn*2 + fxn*0, 2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(s.x + fxn*4 - fyn*2, s.y - r*0.5 + fyn*3, 1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s.x + fxn*4 + fyn*2, s.y - r*0.5 + fyn*3, 1, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  _drawLightOverlay(player, constructions, dayNight) {
+    const { ctx, _lightCanvas, _lightCtx, W, H, camX, camY } = this;
+    const bright = dayNight.sunBrightness;
+    if (bright > 0.9) return; // De día, sin overlay
+
+    const darkness = 1 - bright;
+    _lightCtx.clearRect(0, 0, W, H);
+    _lightCtx.fillStyle = `rgba(0,0,6,${Utils.clamp(darkness * 0.97, 0, 0.97)})`;
+    _lightCtx.fillRect(0, 0, W, H);
+
+    _lightCtx.globalCompositeOperation = 'destination-out';
+
+    // Luz del jugador (pequeña linterna)
+    const ps = this.toScreen(player.x, player.y);
+    const playerLightR = 80 + bright * 40;
+    const pg = _lightCtx.createRadialGradient(ps.x, ps.y, 0, ps.x, ps.y, playerLightR);
+    pg.addColorStop(0, 'rgba(0,0,0,0.8)');
+    pg.addColorStop(1, 'rgba(0,0,0,0)');
+    _lightCtx.fillStyle = pg;
+    _lightCtx.beginPath(); _lightCtx.arc(ps.x, ps.y, playerLightR, 0, Math.PI*2); _lightCtx.fill();
+
+    // Luz de fogatas
+    for (const cf of constructions) {
+      if (cf.type !== 'campfire' || !cf.isAlive) continue;
+      const cs = this.toScreen(cf.x, cf.y);
+      const lr = cf.lightRadius * (0.8 + Math.sin(cf.flickerAngle) * 0.1);
+      const cg = _lightCtx.createRadialGradient(cs.x, cs.y, 0, cs.x, cs.y, lr);
+      const intensity = Math.min(1, cf.wood / 5);
+      cg.addColorStop(0, `rgba(0,0,0,${0.85 * intensity})`);
+      cg.addColorStop(0.5, `rgba(0,0,0,${0.4 * intensity})`);
+      cg.addColorStop(1, 'rgba(0,0,0,0)');
+      _lightCtx.fillStyle = cg;
+      _lightCtx.beginPath(); _lightCtx.arc(cs.x, cs.y, lr, 0, Math.PI*2); _lightCtx.fill();
+    }
+
+    _lightCtx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(_lightCanvas, 0, 0);
+  }
+
+  renderHUD(player, inventory, dayNight) {
+    // Actualizar barras
+    document.getElementById('bar-hp').style.width = (player.hp / player.maxHp * 100) + '%';
+    document.getElementById('bar-energy').style.width = (player.energy / player.maxEnergy * 100) + '%';
+    document.getElementById('bar-heat').style.width = (player.heat / player.maxHeat * 100) + '%';
+    document.getElementById('hud-day').textContent = `Día ${dayNight.day}`;
+    document.getElementById('hud-time').textContent = dayNight.timeLabel;
+    const res = inventory.resources;
+    document.getElementById('res-wood').textContent = `🪵 ${res.wood}`;
+    document.getElementById('res-stone').textContent = `🪨 ${res.stone}`;
+    document.getElementById('res-food').textContent = `🫐 ${res.food}`;
+    document.getElementById('res-fragments').textContent = `💎 ${res.fragments}`;
+  }
+}
+
+// ─── SISTEMA DE ENEMIGOS ─────────────────────────────────────────
+class EnemyManager {
+  constructor() {
+    this.enemies = [];
+    this._spawnTimer = 0;
+    this._spawnInterval = 30;
+  }
+  update(dt, player, constructions, dayNight, world) {
+    this._spawnTimer += dt;
+    const isNight = dayNight.isNight;
+
+    // Spawn nocturno
+    if (isNight && this._spawnTimer >= this._spawnInterval && this.enemies.length < C.MAX_ENEMIES) {
+      this._spawnTimer = 0;
+      this._spawnInterval = Math.max(8, 30 - dayNight.day * 1.5);
+      this._spawnEnemies(player, dayNight.day, world);
+    }
+
+    // Actualizar enemigos
+    for (const e of this.enemies) {
+      if (!e.isDead) e.update(dt, player, constructions);
+    }
+    // Limpiar muertos
+    this.enemies = this.enemies.filter(e => !e.isDead);
+  }
+  _spawnEnemies(player, day, world) {
+    const count = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = C.ENEMY_SPAWN_DISTANCE + Math.random() * 100;
+      const ex = Utils.clamp(player.x + Math.cos(angle) * dist, 20, world.W - 20);
+      const ey = Utils.clamp(player.y + Math.sin(angle) * dist, 20, world.H - 20);
+      let type = 'shadow';
+      if (day >= 5 && Math.random() < 0.4) type = 'wolf';
+      if (day >= 12 && Math.random() < 0.25) type = 'beast';
+      this.enemies.push(Enemy.create(type, ex, ey));
+    }
+  }
+  clearAll() { this.enemies = []; }
+}
+
+// ─── JUEGO PRINCIPAL ─────────────────────────────────────────────
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('canvas');
+    this.renderer = new Renderer(this.canvas);
+    this.input = new InputManager();
+    this.gamepad = new GamepadManager(this.input);
+    this.saveManager = new SaveManager();
+    this.enemyManager = new EnemyManager();
+
+    this.world = null;
+    this.player = null;
+    this.dayNight = null;
+    this.inventory = null;
+    this.constructions = []; // fogatas, cofres construidos, torres, refugios
+    this.achievements = {};
+
+    this.state = 'loading'; // loading | menu | playing | paused | inventory | gameover
+    this._lastTime = 0;
+    this._autosaveTimer = 0;
+    this._hudTimer = 0;
+    this._dayTransitionTimer = 0;
+
+    this._bindUI();
+    this._init();
+  }
+
+  async _init() {
+    await this.saveManager.init();
+    // Simular carga
+    for (let i = 0; i <= 100; i += 10) {
+      await new Promise(r => setTimeout(r, 50));
+      document.getElementById('loading-bar-fill').style.width = i + '%';
+    }
+    const hasSave = await this.saveManager.hasSave();
+    this._showScreen('main-menu');
+    if (hasSave) document.getElementById('btn-continue').style.display = '';
+    window.addEventListener('resize', () => this.renderer.resize());
+    requestAnimationFrame(ts => this._loop(ts));
+  }
+
+  _bindUI() {
+    document.getElementById('btn-new-game').onclick = () => this.newGame();
+    document.getElementById('btn-continue').onclick = () => this.loadGame();
+    document.getElementById('btn-credits').onclick = () => this._showScreen('credits-screen');
+    document.getElementById('btn-credits-back').onclick = () => this._showScreen('main-menu');
+    document.getElementById('btn-resume').onclick = () => this.resume();
+    document.getElementById('btn-build').onclick = () => { this.resume(); this._toggleBuildMenu(); };
+    document.getElementById('btn-save-quit').onclick = async () => { await this._saveGame(); this._showScreen('main-menu'); this.state = 'menu'; };
+    document.getElementById('btn-close-inv').onclick = () => { this._showScreen(null); this.state = 'playing'; };
+    document.getElementById('btn-restart').onclick = () => this.newGame();
+    document.getElementById('btn-menu-go').onclick = () => { this._showScreen('main-menu'); this.state = 'menu'; };
+    // Build menu
+    document.getElementById('build-chest').onclick = () => this._buildConstruction('chest_built', 3, 2, 0, 0);
+    document.getElementById('build-tower').onclick = () => this._buildConstruction('tower', 5, 5, 0, 0);
+    document.getElementById('build-shelter').onclick = () => this._buildConstruction('shelter', 8, 3, 0, 0);
+    document.getElementById('build-campfire').onclick = () => this._buildConstruction('campfire', 4, 2, 0, 0);
+  }
+
+  _showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+    if (id) document.getElementById(id)?.classList.remove('hidden');
+  }
+
+  _toggleBuildMenu() {
+    const menu = document.getElementById('build-menu');
+    menu.classList.toggle('hidden');
+  }
+
+  _buildConstruction(type, wood, stone, food, frags) {
+    const inv = this.inventory;
+    if (!inv.has('wood', wood) || !inv.has('stone', stone)) {
+      Utils.notify('⚠️ No tienes suficientes recursos', '#ff8040'); return;
+    }
+    inv.spend('wood', wood); inv.spend('stone', stone);
+    const obj = type === 'campfire' ? new Campfire(this.player.x + 30, this.player.y) : {
+      type, x: this.player.x + 30, y: this.player.y,
+      r: 16, isAlive: true, flickerAngle: 0,
+      update: () => {},
+      serialize: () => ({ type, x: this.x, y: this.y }),
+    };
+    if (type !== 'campfire') {
+      // Ampliar visión con torre
+      if (type === 'tower') {
+        Utils.notify('🗼 Torre construida — visión ampliada', '#aaddff');
+      } else if (type === 'shelter') {
+        Utils.notify('🏕️ Refugio construido', '#88ffaa');
+      } else {
+        Utils.notify('📦 Cofre construido', '#ffdd88');
+      }
+      obj.x = this.player.x + 30; obj.y = this.player.y;
+    } else {
+      Utils.notify('🔥 Fogata construida', '#ffaa44');
+    }
+    this.constructions.push(obj);
+    document.getElementById('build-menu').classList.add('hidden');
+  }
+
+  newGame() {
+    const seed = Date.now();
+    this.world = new World(seed);
+    const cx = this.world.W / 2, cy = this.world.H / 2;
+    this.player = new Player(cx, cy);
+    this.dayNight = new DayNightCycle();
+    this.inventory = new Inventory();
+    this.inventory.add('wood', 8);
+    this.inventory.add('stone', 3);
+    this.constructions = [new Campfire(cx + 30, cy)];
+    this.enemyManager.enemies = [];
+    this.achievements = {};
+    this.state = 'playing';
+    this._showScreen(null);
+    Utils.notify('⛺ ¡Nuevo campamento iniciado!', '#ffdd88');
+  }
+
+  async loadGame() {
+    const data = await this.saveManager.load();
+    if (!data) { this.newGame(); return; }
+    try {
+      this.world = World.deserialize(data.world);
+      this.player = Player.deserialize(data.player);
+      this.dayNight = DayNightCycle.deserialize(data.dayNight);
+      this.inventory = Inventory.deserialize(data.inventory);
+      this.constructions = data.constructions.map(c => c.type === 'campfire' ? Campfire.deserialize(c) : c);
+      this.achievements = data.achievements || {};
+      this.state = 'playing';
+      this._showScreen(null);
+      Utils.notify(`📂 Partida cargada — Día ${this.dayNight.day}`, '#88ffaa');
+    } catch(e) { console.error(e); this.newGame(); }
+  }
+
+  async _saveGame() {
+    if (!this.world) return;
+    await this.saveManager.save({
+      world: this.world.serialize(),
+      player: this.player.serialize(),
+      dayNight: this.dayNight.serialize(),
+      inventory: this.inventory.serialize(),
+      constructions: this.constructions.map(c => c.serialize ? c.serialize() : c),
+      achievements: this.achievements,
+    });
+    Utils.notify('💾 Partida guardada', '#88ddff');
+  }
+
+  resume() { this.state = 'playing'; this._showScreen(null); }
+
+  _loop(timestamp) {
+    const dt = Math.min((timestamp - this._lastTime) / 1000, 0.05);
+    this._lastTime = timestamp;
+    this.gamepad.update();
+    if (this.state === 'playing') this._update(dt);
+    if (this.state !== 'loading' && this.state !== 'menu') this._render();
+    requestAnimationFrame(ts => this._loop(ts));
+  }
+
+  _update(dt) {
+    const { player, world, dayNight, inventory, constructions, input, enemyManager } = this;
+
+    // Procesar inputs de pantallas
+    if (input.consumeAction('pause')) { this.state = 'paused'; this._showScreen('pause-screen'); return; }
+    if (input.consumeAction('inventory')) { this.state = 'inventory'; this._showInventoryScreen(); return; }
+
+    // Actualizar ciclo día/noche
+    const newDay = dayNight.update(dt);
+    if (newDay) {
+      enemyManager.clearAll();
+      this._showDayTransition();
+      Utils.notify(`☀️ ¡Día ${dayNight.day} — Sobreviviste!`, '#ffee88');
+    }
+
+    // Actualizar fogatas
+    for (const cf of constructions) {
+      if (cf.update) cf.update(dt);
+    }
+
+    // Actualizar jugador
+    player.update(dt, input, world, constructions, dayNight);
+
+    // Explorar
+    world.explore(player.x, player.y);
+    if (constructions.some(c => c.type === 'tower' && Utils.dist(player.x, player.y, c.x, c.y) < 200)) {
+      world.explore(player.x, player.y + C.FOV_RADIUS * 0.5); // Torre amplía visión
+    }
+
+    // Actualizar enemigos
+    enemyManager.update(dt, player, constructions, dayNight, world);
+
+    // Interacción con objetos cercanos
+    if (input.consumeAction('pickup') || input.consumeAction('interact')) {
+      this._handleInteract();
+    }
+
+    // Autosave
+    this._autosaveTimer += dt * 1000;
+    if (this._autosaveTimer >= C.AUTOSAVE_INTERVAL) {
+      this._autosaveTimer = 0;
+      this._saveGame();
+    }
+
+    // Game over
+    if (player.isDead) {
+      this.state = 'gameover';
+      document.getElementById('gameover-msg').textContent = `Llegaste al Día ${dayNight.day}. La oscuridad te consumió.`;
+      this._showScreen('gameover-screen');
+    }
+
+    // HUD
+    this._hudTimer += dt;
+    if (this._hudTimer >= 0.1) {
+      this._hudTimer = 0;
+      this.renderer.renderHUD(player, inventory, dayNight);
+    }
+  }
+
+  _handleInteract() {
+    const { player, world, inventory, constructions } = this;
+    const REACH = 55;
+    const near = world.getNearbyObjects(player.x, player.y, REACH);
+    let acted = false;
+
+    for (const o of near) {
+      if (acted) break;
+      switch (o.type) {
+        case 'tree': case 'giant_tree': {
+          o.hp--;
+          if (o.hp <= 0) {
+            inventory.add('wood', o.data.wood);
+            if (o.data.fragments) inventory.add('fragments', o.data.fragments);
+            Utils.notify(`🪵 +${o.data.wood} madera`, '#c8a060');
+            if (o.data.fragments) Utils.notify('💎 +1 fragmento', '#80ddff');
+            world.removeObject(o);
+          } else {
+            Utils.notify('🪓 Golpeado', '#88aa66');
+          }
+          acted = true; break;
+        }
+        case 'rock': {
+          o.hp--;
+          if (o.hp <= 0) {
+            inventory.add('stone', o.data.stone);
+            Utils.notify(`🪨 +${o.data.stone} piedra`, '#aaaaaa');
+            world.removeObject(o);
+          } else {
+            Utils.notify('⛏️ Golpeado', '#888888');
+          }
+          acted = true; break;
+        }
+        case 'bush': {
+          inventory.add('food', o.data.food);
+          if (o.data.fragments) inventory.add('fragments', o.data.fragments);
+          Utils.notify(`🫐 +${o.data.food} comida`, '#88cc88');
+          if (o.data.fragments) Utils.notify('💎 +1 fragmento', '#80ddff');
+          world.removeObject(o);
+          acted = true; break;
+        }
+        case 'chest': {
+          if (!o.data.opened) {
+            o.data.opened = true;
+            const { wood, stone, food, fragments } = o.data;
+            if (wood) inventory.add('wood', wood);
+            if (stone) inventory.add('stone', stone);
+            if (food) inventory.add('food', food);
+            if (fragments) inventory.add('fragments', fragments);
+            Utils.notify(`📦 ¡Cofre abierto! +${wood}🪵 +${stone}🪨 +${food}🫐${fragments?' +1💎':''}`, '#ffdd88');
+          }
+          acted = true; break;
+        }
+        case 'ruin': case 'abandoned_camp': {
+          if (!o.data.looted) {
+            o.data.looted = true;
+            const { wood, stone, food, fragments } = o.data;
+            if (wood) inventory.add('wood', wood);
+            if (stone) inventory.add('stone', stone);
+            if (food) inventory.add('food', food);
+            if (fragments) inventory.add('fragments', fragments);
+            Utils.notify(`🔍 ¡Encontrado! +${wood||0}🪵 +${stone||0}🪨${fragments?' +1💎':''}`, '#ffcc66');
+          }
+          acted = true; break;
+        }
+      }
+    }
+
+    // Interactuar con fogata (añadir leña o mejorar)
+    for (const cf of constructions) {
+      if (cf.type !== 'campfire') continue;
+      const d = Utils.dist(player.x, player.y, cf.x, cf.y);
+      if (d < REACH + 20) {
+        if (inventory.has('wood', 2)) {
+          inventory.spend('wood', 2);
+          cf.addWood(5);
+          Utils.notify('🔥 +5 leña a la fogata', '#ff9944');
+          acted = true;
+        } else if (inventory.has('wood', 5) && cf.level < 5) {
+          inventory.spend('wood', 5);
+          cf.upgrade();
+          Utils.notify(`⬆️ Fogata mejorada a Nivel ${cf.level}`, '#ffaa44');
+          acted = true;
+        }
+        if (acted) break;
+      }
+    }
+
+    // Comer si tiene comida y baja energía
+    if (!acted && inventory.has('food', 1) && (player.hp < player.maxHp * 0.8 || player.energy < 30)) {
+      inventory.spend('food', 1);
+      player.heal(20);
+      player.energy = Math.min(player.maxEnergy, player.energy + 30);
+      Utils.notify('🫐 Comida (+20❤️ +30⚡)', '#88ff88');
+      acted = true;
+    }
+
+    if (!acted) Utils.notify('Nada cerca para interactuar', '#808080');
+  }
+
+  _showInventoryScreen() {
+    this._showScreen('inventory-screen');
+    const grid = document.getElementById('inventory-grid');
+    grid.innerHTML = '';
+    const res = this.inventory.resources;
+    const items = [
+      { icon: '🪵', label: 'Madera', count: res.wood },
+      { icon: '🪨', label: 'Piedra', count: res.stone },
+      { icon: '🫐', label: 'Comida', count: res.food },
+      { icon: '💎', label: 'Frags', count: res.fragments },
+    ];
+    for (let i = 0; i < this.inventory.capacity; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'inv-slot';
+      if (items[i]) {
+        slot.innerHTML = `<span class="slot-icon">${items[i].icon}</span><span>${items[i].label}</span><span class="slot-count">${items[i].count}</span>`;
+      }
+      grid.appendChild(slot);
+    }
+  }
+
+  _showDayTransition() {
+    const el = document.getElementById('day-transition');
+    document.getElementById('day-transition-text').textContent = `☀️ DÍA ${this.dayNight.day}`;
+    el.classList.add('visible');
+    setTimeout(() => el.classList.remove('visible'), 2500);
+  }
+
+  _render() {
+    if (!this.world) return;
+    this.renderer.setCamera(this.player.x, this.player.y, this.world.W, this.world.H);
+    this.renderer.render({
+      world: this.world,
+      player: this.player,
+      constructions: this.constructions,
+      enemies: this.enemyManager.enemies,
+      dayNight: this.dayNight,
+    });
+  }
+}
+
+// ─── ARRANCAR ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  // Prevenir scroll táctil
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  window.game = new Game();
+});
+</script>
+</body>
+</html>
