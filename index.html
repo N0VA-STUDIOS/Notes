@@ -1,527 +1,255 @@
+
+bash
+
+cat > /mnt/user-data/outputs/zombie-survival/index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ZOMBIE SURVIVAL 2D</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Share+Tech+Mono&family=Bangers&display=swap" rel="stylesheet" />
   <style>
     :root {
       --blood: #8b0000;
-      --blood-bright: #cc0000;
       --gore: #ff2020;
       --flesh: #c8a97e;
-      --dark: #0a0a0a;
       --darker: #050505;
-      --panel: rgba(10,10,10,0.92);
       --green-glow: #39ff14;
-      --acid: #7fff00;
       --yellow-warn: #ffd700;
-      --hud-bg: rgba(0,0,0,0.7);
-      --font-title: 'Bangers', cursive;
-      --font-hud: 'Share Tech Mono', monospace;
-      --font-horror: 'Creepster', cursive;
+      --hud-bg: rgba(0,0,0,0.75);
     }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin:0; padding:0; box-sizing:border-box; }
 
     body {
       background: var(--darker);
       overflow: hidden;
-      font-family: var(--font-hud);
+      font-family: 'Share Tech Mono', monospace;
       user-select: none;
     }
 
-    /* ── CANVAS ─────────────────────────────────────── */
-    #gameCanvas {
-      display: block;
-      background: transparent;
-      image-rendering: pixelated;
-    }
-
-    /* ── WRAPPER ────────────────────────────────────── */
     #gameWrapper {
       position: relative;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background:
-        radial-gradient(ellipse at center, #1a0000 0%, #050505 70%);
+      width: 100vw; height: 100vh;
+      background: radial-gradient(ellipse at center, #1a0000 0%, #050505 70%);
     }
 
     /* scanlines */
     #gameWrapper::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.12) 2px,
-        rgba(0,0,0,0.12) 4px
-      );
-      pointer-events: none;
-      z-index: 100;
+      content:'';
+      position:fixed; inset:0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
+      pointer-events:none; z-index:90;
     }
-
     /* vignette */
     #gameWrapper::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.85) 100%);
-      pointer-events: none;
-      z-index: 99;
+      content:'';
+      position:fixed; inset:0;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.8) 100%);
+      pointer-events:none; z-index:89;
     }
 
-    /* ── HUD ─────────────────────────────────────────── */
+    #gameCanvas { display:block; }
+
+    /* ── HUD ── */
     #hud {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      padding: 14px 20px;
-      z-index: 50;
-      pointer-events: none;
+      position:fixed; top:0; left:0; right:0;
+      display:flex; justify-content:space-between; align-items:flex-start;
+      padding:12px 18px; z-index:50; pointer-events:none;
+      opacity:0; transition:opacity 0.3s;
     }
+    #hud.visible { opacity:1; }
 
     .hud-block {
-      background: var(--hud-bg);
-      border: 1px solid rgba(139,0,0,0.4);
-      border-radius: 4px;
-      padding: 8px 14px;
-      min-width: 120px;
+      background:var(--hud-bg);
+      border:1px solid rgba(139,0,0,0.4);
+      border-radius:4px; padding:8px 14px; min-width:110px;
     }
-
     .hud-label {
-      font-size: 9px;
-      letter-spacing: 3px;
-      color: rgba(255,255,255,0.4);
-      text-transform: uppercase;
-      margin-bottom: 3px;
+      font-size:9px; letter-spacing:3px;
+      color:rgba(255,255,255,0.4); text-transform:uppercase; margin-bottom:3px;
     }
+    .hud-value { font-size:22px; letter-spacing:2px; color:#fff; }
+    .hud-value.red   { color:var(--gore); text-shadow:0 0 8px var(--blood); }
+    .hud-value.green { color:var(--green-glow); text-shadow:0 0 8px var(--green-glow); }
+    .hud-value.gold  { color:var(--yellow-warn); text-shadow:0 0 8px var(--yellow-warn); }
 
-    .hud-value {
-      font-size: 22px;
-      letter-spacing: 2px;
-      color: #fff;
-      font-family: var(--font-hud);
-    }
-
-    .hud-value.red { color: var(--gore); text-shadow: 0 0 8px var(--blood); }
-    .hud-value.green { color: var(--green-glow); text-shadow: 0 0 8px var(--green-glow); }
-    .hud-value.gold { color: var(--yellow-warn); text-shadow: 0 0 8px var(--yellow-warn); }
-
-    /* health bar */
     #healthBar {
-      width: 140px;
-      height: 10px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 6px;
-      border: 1px solid rgba(139,0,0,0.3);
+      width:140px; height:8px;
+      background:rgba(255,255,255,0.08); border-radius:2px;
+      overflow:hidden; margin-top:6px; border:1px solid rgba(139,0,0,0.3);
     }
     #healthFill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--blood), var(--gore));
-      transition: width 0.2s;
-      box-shadow: 0 0 6px var(--gore);
+      height:100%;
+      background:linear-gradient(90deg, var(--blood), var(--gore));
+      transition:width 0.2s; box-shadow:0 0 6px var(--gore);
     }
 
-    /* ammo */
-    #ammoBar {
-      display: flex;
-      gap: 3px;
-      margin-top: 6px;
-      flex-wrap: wrap;
-      max-width: 140px;
-    }
+    #ammoBar { display:flex; gap:3px; margin-top:6px; flex-wrap:wrap; max-width:140px; }
     .bullet-pip {
-      width: 5px;
-      height: 12px;
-      background: var(--yellow-warn);
-      border-radius: 1px;
-      box-shadow: 0 0 4px var(--yellow-warn);
-      transition: opacity 0.1s;
+      width:5px; height:12px; background:var(--yellow-warn);
+      border-radius:1px; box-shadow:0 0 4px var(--yellow-warn);
     }
-    .bullet-pip.empty {
-      background: rgba(255,255,255,0.1);
-      box-shadow: none;
-    }
+    .bullet-pip.empty { background:rgba(255,255,255,0.1); box-shadow:none; }
 
     /* wave badge */
     #waveBadge {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%,-50%) scale(0);
-      font-family: var(--font-title);
-      font-size: 80px;
-      color: var(--gore);
-      text-shadow:
-        0 0 40px var(--blood),
-        3px 3px 0 #000;
-      letter-spacing: 6px;
-      z-index: 200;
-      pointer-events: none;
-      transition: transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.3s;
-      opacity: 0;
+      position:fixed; top:50%; left:50%;
+      transform:translate(-50%,-50%) scale(0);
+      font-family:'Bangers', cursive; font-size:clamp(50px,8vw,90px);
+      color:var(--gore); letter-spacing:6px;
+      text-shadow:4px 4px 0 #3a0000, 0 0 40px rgba(200,0,0,0.5);
+      z-index:200; pointer-events:none;
+      opacity:0; transition:transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.3s;
     }
-    #waveBadge.show {
-      transform: translate(-50%,-50%) scale(1);
-      opacity: 1;
-    }
+    #waveBadge.show { transform:translate(-50%,-50%) scale(1); opacity:1; }
 
     /* kill feed */
     #killFeed {
-      position: fixed;
-      right: 20px;
-      top: 90px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      z-index: 50;
-      pointer-events: none;
+      position:fixed; right:18px; top:90px;
+      display:flex; flex-direction:column; gap:4px;
+      z-index:50; pointer-events:none;
     }
     .kill-entry {
-      font-family: var(--font-hud);
-      font-size: 11px;
-      color: var(--gore);
-      text-align: right;
-      animation: killFade 2s forwards;
+      font-size:11px; color:var(--gore); text-align:right;
+      animation:killFade 2s forwards;
     }
     @keyframes killFade {
-      0% { opacity:1; transform: translateX(0); }
-      80% { opacity:1; }
-      100% { opacity:0; transform: translateX(20px); }
+      0%   { opacity:1; transform:translateX(0); }
+      80%  { opacity:1; }
+      100% { opacity:0; transform:translateX(20px); }
     }
 
-    /* ── OVERLAY SCREENS ────────────────────────────── */
+    /* overlays */
+    #hitOverlay {
+      position:fixed; inset:0;
+      background:radial-gradient(ellipse at center, transparent 40%, rgba(139,0,0,0.65) 100%);
+      pointer-events:none; z-index:400; opacity:0; transition:opacity 0.08s;
+    }
+    #reloadFlash {
+      position:fixed; inset:0;
+      background:rgba(255,215,0,0.06);
+      pointer-events:none; z-index:400; opacity:0; transition:opacity 0.1s;
+    }
+
+    /* ── SCREENS ── */
     .screen {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 300;
-      transition: opacity 0.4s, transform 0.4s;
+      position:fixed; inset:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      z-index:300; transition:opacity 0.35s;
     }
+    .screen.hidden { opacity:0; pointer-events:none; }
 
-    .screen.hidden {
-      opacity: 0;
-      pointer-events: none;
-      transform: scale(1.04);
-    }
-
-    /* blood drip bg for overlays */
     .screen-bg {
-      position: absolute;
-      inset: 0;
+      position:absolute; inset:0;
       background:
-        radial-gradient(ellipse at 30% 20%, rgba(139,0,0,0.3) 0%, transparent 60%),
-        radial-gradient(ellipse at 70% 80%, rgba(100,0,0,0.2) 0%, transparent 50%),
-        rgba(0,0,0,0.88);
-      backdrop-filter: blur(4px);
+        radial-gradient(ellipse at 30% 20%, rgba(139,0,0,0.25) 0%, transparent 60%),
+        rgba(0,0,0,0.87);
+      backdrop-filter:blur(3px);
     }
-
     .screen-content {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 24px;
+      position:relative; z-index:1;
+      display:flex; flex-direction:column; align-items:center; gap:22px;
     }
 
-    /* Title */
     .game-title {
-      font-family: var(--font-title);
-      font-size: clamp(52px, 8vw, 100px);
-      color: #fff;
-      letter-spacing: 8px;
-      line-height: 1;
-      text-shadow:
-        4px 4px 0 var(--blood),
-        8px 8px 0 #3a0000,
-        0 0 60px rgba(200,0,0,0.5);
-      text-align: center;
+      font-family:'Bangers', cursive;
+      font-size:clamp(54px,9vw,104px);
+      color:#fff; letter-spacing:8px; line-height:1; text-align:center;
+      text-shadow:4px 4px 0 var(--blood), 8px 8px 0 #3a0000, 0 0 60px rgba(200,0,0,0.45);
     }
-
     .game-subtitle {
-      font-family: var(--font-horror);
-      font-size: clamp(18px, 3vw, 28px);
-      color: var(--flesh);
-      letter-spacing: 12px;
-      opacity: 0.8;
-      text-align: center;
+      font-family:'Creepster', cursive;
+      font-size:clamp(18px,3vw,28px);
+      color:var(--flesh); letter-spacing:14px; opacity:0.8;
     }
-
-    /* Divider */
     .divider {
-      width: 200px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--blood), transparent);
+      width:200px; height:2px;
+      background:linear-gradient(90deg, transparent, var(--blood), transparent);
     }
-
-    /* Buttons */
-    .btn {
-      font-family: var(--font-title);
-      font-size: 28px;
-      letter-spacing: 4px;
-      color: #fff;
-      background: transparent;
-      border: 2px solid var(--blood);
-      padding: 14px 48px;
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      transition: all 0.2s;
-      min-width: 220px;
-      text-align: center;
-    }
-
-    .btn::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, var(--blood) 0%, transparent 60%);
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .btn:hover {
-      border-color: var(--gore);
-      color: var(--gore);
-      text-shadow: 0 0 20px var(--gore);
-      transform: translateX(4px);
-      box-shadow: -4px 0 0 var(--gore), 0 0 30px rgba(200,0,0,0.3);
-    }
-    .btn:hover::before { opacity: 1; }
-
-    .btn:active { transform: translateX(2px) scale(0.98); }
-
-    .btn-secondary {
-      font-size: 20px;
-      padding: 10px 32px;
-      border-color: rgba(200,200,200,0.3);
-      color: rgba(255,255,255,0.6);
-      min-width: 160px;
-    }
-
-    .btn-secondary:hover {
-      border-color: rgba(255,255,255,0.6);
-      color: #fff;
-      text-shadow: none;
-      box-shadow: none;
-    }
-
-    /* Stats grid on death screen */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px 32px;
-      padding: 20px 40px;
-      background: rgba(0,0,0,0.5);
-      border: 1px solid rgba(139,0,0,0.3);
-    }
-
-    .stat-item { text-align: center; }
-    .stat-num {
-      font-family: var(--font-title);
-      font-size: 36px;
-      color: var(--gore);
-      text-shadow: 0 0 12px var(--blood);
-    }
-    .stat-name {
-      font-size: 9px;
-      letter-spacing: 3px;
-      color: rgba(255,255,255,0.4);
-      text-transform: uppercase;
-    }
-
-    /* screen title variants */
     .screen-title {
-      font-family: var(--font-title);
-      letter-spacing: 6px;
-      text-align: center;
+      font-family:'Bangers', cursive; letter-spacing:6px; text-align:center;
     }
     .screen-title.dead {
-      font-size: clamp(52px, 9vw, 110px);
-      color: var(--gore);
-      text-shadow:
-        5px 5px 0 #3a0000,
-        0 0 60px rgba(200,0,0,0.7),
-        0 0 120px rgba(139,0,0,0.4);
-      animation: flickerDead 0.1s infinite alternate;
+      font-size:clamp(52px,9vw,110px); color:var(--gore);
+      text-shadow:5px 5px 0 #3a0000, 0 0 60px rgba(200,0,0,0.7);
     }
-    @keyframes flickerDead {
-      from { opacity: 1; }
-      to { opacity: 0.92; }
-    }
-
     .screen-title.pause {
-      font-size: 64px;
-      color: #fff;
-      text-shadow: 3px 3px 0 var(--blood);
+      font-size:64px; color:#fff; text-shadow:3px 3px 0 var(--blood);
     }
 
-    /* controls hint */
-    .controls-hint {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
-      justify-content: center;
-      max-width: 500px;
+    .btn {
+      font-family:'Bangers', cursive; font-size:28px; letter-spacing:4px;
+      color:#fff; background:transparent; border:2px solid var(--blood);
+      padding:12px 48px; cursor:pointer; position:relative; overflow:hidden;
+      transition:all 0.18s; min-width:200px; text-align:center;
     }
-    .control-key {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
+    .btn:hover {
+      border-color:var(--gore); color:var(--gore);
+      text-shadow:0 0 16px var(--gore);
+      transform:translateX(4px);
+      box-shadow:-4px 0 0 var(--gore), 0 0 28px rgba(200,0,0,0.25);
     }
+    .btn:active { transform:translateX(2px) scale(0.97); }
+    .btn-sm {
+      font-size:20px; padding:9px 30px;
+      border-color:rgba(200,200,200,0.25); color:rgba(255,255,255,0.5);
+      min-width:160px;
+    }
+    .btn-sm:hover {
+      border-color:rgba(255,255,255,0.5); color:#fff;
+      text-shadow:none; box-shadow:none; transform:translateX(0);
+    }
+
+    .stats-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:12px 36px;
+      padding:18px 36px;
+      background:rgba(0,0,0,0.5); border:1px solid rgba(139,0,0,0.3);
+    }
+    .stat-item { text-align:center; }
+    .stat-num { font-family:'Bangers',cursive; font-size:36px; color:var(--gore); text-shadow:0 0 12px var(--blood); }
+    .stat-name { font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.4); text-transform:uppercase; }
+
+    .controls-hint { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; }
+    .control-key { display:flex; flex-direction:column; align-items:center; gap:4px; }
     .key-badge {
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.2);
-      padding: 4px 10px;
-      font-family: var(--font-hud);
-      font-size: 13px;
-      color: var(--yellow-warn);
-      border-radius: 3px;
-      min-width: 40px;
-      text-align: center;
+      background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2);
+      padding:4px 10px; font-size:12px; color:var(--yellow-warn);
+      border-radius:3px; min-width:40px; text-align:center;
     }
-    .key-desc {
-      font-size: 9px;
-      letter-spacing: 2px;
-      color: rgba(255,255,255,0.35);
-      text-transform: uppercase;
-    }
+    .key-desc { font-size:9px; letter-spacing:2px; color:rgba(255,255,255,0.3); text-transform:uppercase; }
 
-    /* blood splatter effect */
-    .splatter {
-      position: fixed;
-      pointer-events: none;
-      z-index: 500;
-      border-radius: 50%;
-      background: radial-gradient(circle, var(--gore), var(--blood), transparent);
-      animation: splatterAnim 0.4s forwards;
-    }
-    @keyframes splatterAnim {
-      0% { transform: scale(0); opacity: 1; }
-      100% { transform: scale(1); opacity: 0; }
-    }
+    .best-score { font-size:11px; letter-spacing:3px; color:rgba(255,215,0,0.45); text-transform:uppercase; }
 
-    /* mobile controls */
+    #pauseHint {
+      position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+      font-size:10px; letter-spacing:4px; color:rgba(255,255,255,0.2);
+      z-index:50; pointer-events:none; opacity:0; transition:opacity 0.3s;
+    }
+    #pauseHint.visible { opacity:1; }
+
+    /* mobile d-pad */
     #mobileControls {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: none;
-      padding: 16px;
-      z-index: 50;
-      pointer-events: none;
+      position:fixed; bottom:0; left:0; right:0;
+      display:none; padding:14px; z-index:50; pointer-events:none;
     }
-    @media (max-width: 768px), (pointer: coarse) {
-      #mobileControls { display: flex; justify-content: space-between; align-items: flex-end; }
+    @media (pointer:coarse) { #mobileControls { display:flex; justify-content:space-between; align-items:flex-end; } }
+    .dpad { display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; width:120px; height:120px; }
+    .dp {
+      background:rgba(0,0,0,0.65); border:1px solid rgba(139,0,0,0.5);
+      border-radius:4px; display:flex; align-items:center; justify-content:center;
+      font-size:18px; color:rgba(255,255,255,0.65); pointer-events:all; touch-action:none;
     }
-    .dpad {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      grid-template-rows: 1fr 1fr 1fr;
-      gap: 4px;
-      width: 130px;
-      height: 130px;
+    .dp:active { background:rgba(139,0,0,0.45); }
+    .dp-blank { background:transparent; border:none; }
+    .action-btns { display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
+    .act-btn {
+      width:68px; height:68px; border-radius:50%;
+      border:2px solid var(--blood); background:rgba(0,0,0,0.7);
+      font-size:10px; letter-spacing:1px; color:var(--gore);
+      pointer-events:all; touch-action:none;
     }
-    .dpad-btn {
-      background: rgba(0,0,0,0.6);
-      border: 1px solid rgba(139,0,0,0.5);
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      color: rgba(255,255,255,0.7);
-      pointer-events: all;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: none;
-    }
-    .dpad-btn:active { background: rgba(139,0,0,0.5); }
-    .dpad-center { grid-column: 2; grid-row: 2; background: transparent; border: none; }
-    .action-btns {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      align-items: flex-end;
-    }
-    .action-btn {
-      width: 70px;
-      height: 70px;
-      border-radius: 50%;
-      border: 2px solid var(--blood);
-      background: rgba(0,0,0,0.7);
-      font-family: var(--font-hud);
-      font-size: 11px;
-      letter-spacing: 1px;
-      color: var(--gore);
-      pointer-events: all;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: none;
-    }
-    .action-btn:active { background: rgba(139,0,0,0.5); }
-
-    /* Reload flash */
-    #reloadFlash {
-      position: fixed;
-      inset: 0;
-      background: rgba(255,215,0,0.05);
-      pointer-events: none;
-      z-index: 400;
-      opacity: 0;
-      transition: opacity 0.1s;
-    }
-
-    /* Hit overlay */
-    #hitOverlay {
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(ellipse at center, transparent 40%, rgba(139,0,0,0.6) 100%);
-      pointer-events: none;
-      z-index: 400;
-      opacity: 0;
-      transition: opacity 0.1s;
-    }
-
-    /* Best score */
-    .best-score {
-      font-family: var(--font-hud);
-      font-size: 11px;
-      letter-spacing: 3px;
-      color: rgba(255,215,0,0.5);
-      text-transform: uppercase;
-    }
-
-    /* Pause indicator */
-    #pauseIndicator {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-family: var(--font-hud);
-      font-size: 10px;
-      letter-spacing: 4px;
-      color: rgba(255,255,255,0.25);
-      z-index: 50;
-      pointer-events: none;
-    }
+    .act-btn:active { background:rgba(139,0,0,0.45); }
   </style>
 </head>
 <body>
@@ -530,141 +258,98 @@
   <canvas id="gameCanvas"></canvas>
 </div>
 
-<!-- HUD (visible durante gameplay) -->
+<!-- HUD -->
 <div id="hud">
-  <!-- Vida -->
   <div class="hud-block">
     <div class="hud-label">Vida</div>
     <div id="healthValue" class="hud-value red">100</div>
     <div id="healthBar"><div id="healthFill" style="width:100%"></div></div>
   </div>
-
-  <!-- Oleada -->
   <div class="hud-block" style="text-align:center">
     <div class="hud-label">Oleada</div>
     <div id="waveValue" class="hud-value gold">1</div>
   </div>
-
-  <!-- Score -->
   <div class="hud-block" style="text-align:center">
     <div class="hud-label">Puntos</div>
     <div id="scoreValue" class="hud-value green">0</div>
   </div>
-
-  <!-- Munición -->
   <div class="hud-block" style="text-align:right">
     <div class="hud-label">Munición</div>
-    <div id="ammoValue" class="hud-value">12/∞</div>
+    <div id="ammoValue" class="hud-value">12/12</div>
     <div id="ammoBar"></div>
   </div>
 </div>
 
 <!-- Wave badge -->
-<div id="waveBadge">OLEADA 1</div>
+<div id="waveBadge"></div>
 
 <!-- Kill feed -->
 <div id="killFeed"></div>
 
-<!-- Hit overlay -->
+<!-- Overlays -->
 <div id="hitOverlay"></div>
 <div id="reloadFlash"></div>
 
-<!-- ── PANTALLA PRINCIPAL ───────────────────────────────── -->
+<!-- Pause hint -->
+<div id="pauseHint">ESC — PAUSAR</div>
+
+<!-- ── MENÚ ── -->
 <div class="screen" id="screenMenu">
   <div class="screen-bg"></div>
   <div class="screen-content">
     <div class="game-title">ZOMBIE<br>SURVIVAL</div>
     <div class="game-subtitle">2 D</div>
     <div class="divider"></div>
-
     <div class="controls-hint">
-      <div class="control-key">
-        <div class="key-badge">WASD</div>
-        <div class="key-desc">Mover</div>
-      </div>
-      <div class="control-key">
-        <div class="key-badge">Click</div>
-        <div class="key-desc">Disparar</div>
-      </div>
-      <div class="control-key">
-        <div class="key-badge">R</div>
-        <div class="key-desc">Recargar</div>
-      </div>
-      <div class="control-key">
-        <div class="key-badge">ESC</div>
-        <div class="key-desc">Pausa</div>
-      </div>
+      <div class="control-key"><div class="key-badge">WASD</div><div class="key-desc">Mover</div></div>
+      <div class="control-key"><div class="key-badge">Click</div><div class="key-desc">Disparar</div></div>
+      <div class="control-key"><div class="key-badge">R</div><div class="key-desc">Recargar</div></div>
+      <div class="control-key"><div class="key-badge">ESC</div><div class="key-desc">Pausa</div></div>
     </div>
-
     <button class="btn" id="btnPlay">JUGAR</button>
     <div id="bestScoreMenu" class="best-score">MEJOR: 0 PTS</div>
   </div>
 </div>
 
-<!-- ── PANTALLA PAUSA ──────────────────────────────────── -->
+<!-- ── PAUSA ── -->
 <div class="screen hidden" id="screenPause">
   <div class="screen-bg"></div>
   <div class="screen-content">
     <div class="screen-title pause">PAUSA</div>
     <div class="divider"></div>
     <button class="btn" id="btnContinue">CONTINUAR</button>
-    <button class="btn btn-secondary" id="btnMenuFromPause">MENÚ</button>
+    <button class="btn btn-sm" id="btnMenuFromPause">MENÚ</button>
   </div>
 </div>
 
-<!-- ── PANTALLA MUERTE ─────────────────────────────────── -->
+<!-- ── MUERTE ── -->
 <div class="screen hidden" id="screenDead">
   <div class="screen-bg"></div>
   <div class="screen-content">
     <div class="screen-title dead">HAS MUERTO</div>
-
     <div class="stats-grid">
-      <div class="stat-item">
-        <div class="stat-num" id="statScore">0</div>
-        <div class="stat-name">Puntos</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-num" id="statWave">1</div>
-        <div class="stat-name">Oleada</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-num" id="statKills">0</div>
-        <div class="stat-name">Bajas</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-num" id="statBest">0</div>
-        <div class="stat-name">Récord</div>
-      </div>
+      <div class="stat-item"><div class="stat-num" id="statScore">0</div><div class="stat-name">Puntos</div></div>
+      <div class="stat-item"><div class="stat-num" id="statWave">1</div><div class="stat-name">Oleada</div></div>
+      <div class="stat-item"><div class="stat-num" id="statKills">0</div><div class="stat-name">Bajas</div></div>
+      <div class="stat-item"><div class="stat-num" id="statBest">0</div><div class="stat-name">Récord</div></div>
     </div>
-
     <button class="btn" id="btnRetry">REINTENTAR</button>
-    <button class="btn btn-secondary" id="btnMenuFromDead">MENÚ</button>
+    <button class="btn btn-sm" id="btnMenuFromDead">MENÚ</button>
   </div>
 </div>
 
-<!-- Mobile Controls -->
+<!-- Mobile controls -->
 <div id="mobileControls">
   <div class="dpad">
-    <div></div>
-    <div class="dpad-btn" id="dUp">▲</div>
-    <div></div>
-    <div class="dpad-btn" id="dLeft">◀</div>
-    <div class="dpad-center"></div>
-    <div class="dpad-btn" id="dRight">▶</div>
-    <div></div>
-    <div class="dpad-btn" id="dDown">▼</div>
-    <div></div>
+    <div class="dp-blank"></div><div class="dp" id="dUp">▲</div><div class="dp-blank"></div>
+    <div class="dp" id="dLeft">◀</div><div class="dp-blank"></div><div class="dp" id="dRight">▶</div>
+    <div class="dp-blank"></div><div class="dp" id="dDown">▼</div><div class="dp-blank"></div>
   </div>
   <div class="action-btns">
-    <button class="action-btn" id="btnReloadMobile">RELOAD</button>
-    <button class="action-btn" id="btnFireMobile">FIRE</button>
+    <button class="act-btn" id="btnReloadMobile">RELOAD</button>
+    <button class="act-btn" id="btnFireMobile">FIRE</button>
   </div>
 </div>
-
-<div id="pauseIndicator">ESC — PAUSAR</div>
-
-<!-- Wave badge overlay -->
-<div id="waveBadge"></div>
 
 <script src="js/game.js"></script>
 </body>
