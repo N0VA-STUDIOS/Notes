@@ -1,1991 +1,671 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0500">
-<title>Último Campamento</title>
-<style>
-:root{--ui-bg:rgba(8,4,0,0.88);--ui-border:rgba(255,150,40,0.35);--ui-text:#f0d090;--hp:#e05050;--energy:#4090d0;--heat:#e07020;--acc:#ffaa33;--fog:#003060;--storm:#202840}
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#050200;overflow:hidden;font-family:'Courier New',monospace;touch-action:none;user-select:none;-webkit-user-select:none}
-canvas{display:block;position:absolute;top:0;left:0}
-#c-world{z-index:1}
-#c-particles{z-index:2;pointer-events:none}
-#c-weather{z-index:3;pointer-events:none}
-#c-light{z-index:4;pointer-events:none}
-/* HUD */
-#hud{position:absolute;top:0;left:0;right:0;padding:6px 10px;display:flex;flex-direction:column;gap:3px;pointer-events:none;z-index:10}
-#hud-top{display:flex;justify-content:space-between;align-items:flex-start}
-#hud-stats{display:flex;flex-direction:column;gap:3px}
-.sb{display:flex;align-items:center;gap:4px}
-.si{width:12px;font-size:9px;text-align:center}
-.bt{width:85px;height:6px;background:rgba(0,0,0,0.6);border-radius:3px;border:1px solid rgba(255,255,255,0.12);overflow:hidden}
-.bf{height:100%;border-radius:3px;transition:width .15s}
-#b-hp{background:var(--hp)}#b-en{background:var(--energy)}#b-ht{background:var(--heat)}#b-xp{background:#8844cc}
-#hud-right{text-align:right;color:var(--ui-text);font-size:10px;line-height:1.6;text-shadow:0 0 8px #000}
-#hud-res{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
-.ri{background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:3px;padding:2px 5px;font-size:9px;color:var(--ui-text)}
-/* WEAPON SLOT */
-#weapon-hud{position:absolute;bottom:190px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:15;pointer-events:none}
-.wslot{width:48px;height:48px;background:rgba(8,4,0,0.85);border:2px solid var(--ui-border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;color:var(--ui-text)}
-.wslot.active{border-color:var(--acc);box-shadow:0 0 10px rgba(255,160,40,0.5)}
-.wslot span{font-size:20px}
-/* CONTROLS */
-#touch-controls{position:absolute;bottom:0;left:0;right:0;pointer-events:none;z-index:20;height:185px}
-#joy-zone{position:absolute;bottom:18px;left:18px;width:120px;height:120px;pointer-events:all}
-#joy-base{position:absolute;inset:0;border-radius:50%;background:rgba(255,160,60,0.12);border:2px solid rgba(255,160,60,0.35)}
-#joy-thumb{position:absolute;width:42px;height:42px;border-radius:50%;background:rgba(255,150,40,0.55);border:2px solid rgba(255,190,80,0.8);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
-#act-btns{position:absolute;bottom:18px;right:14px;display:grid;grid-template-columns:1fr 1fr;gap:7px;pointer-events:all}
-.abtn{width:50px;height:50px;border-radius:50%;background:rgba(8,4,0,0.75);border:2px solid var(--ui-border);color:var(--ui-text);font-size:8px;font-family:'Courier New',monospace;font-weight:bold;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.abtn em{font-size:15px;font-style:normal}
-.abtn.active{background:rgba(255,120,30,0.45);border-color:var(--acc)}
-#btn-pause{position:absolute;bottom:150px;right:14px;width:34px;height:34px;border-radius:6px;background:rgba(8,4,0,0.75);border:1px solid var(--ui-border);color:var(--ui-text);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:all}
-#btn-craft{position:absolute;bottom:110px;right:14px;width:34px;height:34px;border-radius:6px;background:rgba(8,4,0,0.75);border:1px solid var(--ui-border);color:var(--ui-text);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:all}
-/* SCREENS */
-.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;background:rgba(4,2,0,0.97);color:var(--ui-text)}
-.screen.hidden{display:none}
-.screen h1{font-size:26px;color:var(--acc);text-shadow:0 0 25px rgba(255,130,30,.9);letter-spacing:3px;margin-bottom:6px}
-.screen p{font-size:11px;color:#907050;margin-bottom:20px;text-align:center;max-width:280px}
-.bmenu{background:transparent;border:1px solid var(--ui-border);color:var(--ui-text);font-family:'Courier New',monospace;font-size:12px;padding:9px 26px;margin:5px;cursor:pointer;border-radius:3px;transition:all .2s;letter-spacing:1px}
-.bmenu:hover,.bmenu:active{background:rgba(255,130,30,.2);border-color:var(--acc);color:var(--acc)}
-/* INVENTORY */
-#inv-body{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:360px;width:100%}
-#inv-resources{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
-.res-card{background:rgba(15,8,0,.9);border:1px solid var(--ui-border);border-radius:5px;padding:8px 12px;min-width:120px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ui-text)}
-.res-card em{font-size:22px;font-style:normal}
-#inv-weapons{display:flex;flex-direction:column;gap:6px}
-.inv-weapon{background:rgba(15,8,0,.9);border:1px solid var(--ui-border);border-radius:5px;padding:6px 10px;font-size:10px;color:var(--ui-text);cursor:pointer;display:flex;align-items:center;gap:8px}
-.inv-weapon.equipped{border-color:var(--acc);background:rgba(255,140,30,.15)}
-.inv-weapon em{font-size:18px;font-style:normal}
-#craft-list{display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow-y:auto;width:100%;max-width:300px;padding:0 4px}
-.craft-item{background:rgba(12,6,0,.9);border:1px solid var(--ui-border);border-radius:5px;padding:7px 10px;cursor:pointer;transition:all .15s}
-.craft-item:hover,.craft-item:active{background:rgba(255,130,30,.2);border-color:var(--acc)}
-.craft-name{font-size:11px;color:var(--ui-text);margin-bottom:2px}
-.craft-cost{font-size:9px;color:#907050}
-.craft-desc{font-size:9px;color:#a09060;margin-top:1px}
-/* NOTIFS */
-#notifs{position:absolute;top:85px;left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:3px}
-.notif{background:rgba(8,4,0,.92);border:1px solid var(--ui-border);border-radius:3px;padding:3px 10px;font-size:10px;color:var(--ui-text);animation:nI .25s ease,nO .4s ease 1.8s forwards;white-space:nowrap}
-@keyframes nI{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-@keyframes nO{to{opacity:0;transform:translateY(-6px)}}
-/* LOADING */
-#loading-screen{background:#040200}
-#lb-track{width:180px;height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:18px}
-#lb-fill{height:100%;background:var(--acc);border-radius:2px;width:0%;transition:width .08s}
-/* BUILD MENU */
-#build-menu{position:absolute;bottom:185px;left:50%;transform:translateX(-50%);background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:7px;padding:8px;z-index:25;pointer-events:all;display:flex;gap:6px;flex-wrap:wrap;max-width:340px;justify-content:center}
-#build-menu.hidden{display:none}
-.bbtn{background:rgba(15,7,0,.85);border:1px solid var(--ui-border);color:var(--ui-text);font-size:8px;padding:5px 7px;border-radius:4px;cursor:pointer;text-align:center;font-family:'Courier New',monospace;min-width:60px}
-.bbtn em{font-size:16px;display:block;margin-bottom:2px;font-style:normal}
-.bbtn:active{background:rgba(255,130,30,.3)}
-/* DAY TRANSITION */
-#day-trans{position:absolute;inset:0;background:rgba(255,190,80,.12);z-index:50;pointer-events:none;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 1s}
-#day-trans.show{opacity:1}
-#day-trans span{font-size:22px;color:var(--acc);letter-spacing:4px;text-shadow:0 0 25px rgba(255,150,40,.9)}
-/* WEATHER INDICATOR */
-#weather-hud{position:absolute;top:6px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(200,220,255,0.7);z-index:12;pointer-events:none;text-shadow:0 0 6px #000}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZOMBIE SURVIVAL 2D</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Share+Tech+Mono&family=Bangers&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --blood: #8b0000;
+      --blood-bright: #cc0000;
+      --gore: #ff2020;
+      --flesh: #c8a97e;
+      --dark: #0a0a0a;
+      --darker: #050505;
+      --panel: rgba(10,10,10,0.92);
+      --green-glow: #39ff14;
+      --acid: #7fff00;
+      --yellow-warn: #ffd700;
+      --hud-bg: rgba(0,0,0,0.7);
+      --font-title: 'Bangers', cursive;
+      --font-hud: 'Share Tech Mono', monospace;
+      --font-horror: 'Creepster', cursive;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--darker);
+      overflow: hidden;
+      font-family: var(--font-hud);
+      user-select: none;
+    }
+
+    /* ── CANVAS ─────────────────────────────────────── */
+    #gameCanvas {
+      display: block;
+      background: transparent;
+      image-rendering: pixelated;
+    }
+
+    /* ── WRAPPER ────────────────────────────────────── */
+    #gameWrapper {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(ellipse at center, #1a0000 0%, #050505 70%);
+    }
+
+    /* scanlines */
+    #gameWrapper::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.12) 2px,
+        rgba(0,0,0,0.12) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* vignette */
+    #gameWrapper::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.85) 100%);
+      pointer-events: none;
+      z-index: 99;
+    }
+
+    /* ── HUD ─────────────────────────────────────────── */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 14px 20px;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .hud-block {
+      background: var(--hud-bg);
+      border: 1px solid rgba(139,0,0,0.4);
+      border-radius: 4px;
+      padding: 8px 14px;
+      min-width: 120px;
+    }
+
+    .hud-label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .hud-value {
+      font-size: 22px;
+      letter-spacing: 2px;
+      color: #fff;
+      font-family: var(--font-hud);
+    }
+
+    .hud-value.red { color: var(--gore); text-shadow: 0 0 8px var(--blood); }
+    .hud-value.green { color: var(--green-glow); text-shadow: 0 0 8px var(--green-glow); }
+    .hud-value.gold { color: var(--yellow-warn); text-shadow: 0 0 8px var(--yellow-warn); }
+
+    /* health bar */
+    #healthBar {
+      width: 140px;
+      height: 10px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 6px;
+      border: 1px solid rgba(139,0,0,0.3);
+    }
+    #healthFill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blood), var(--gore));
+      transition: width 0.2s;
+      box-shadow: 0 0 6px var(--gore);
+    }
+
+    /* ammo */
+    #ammoBar {
+      display: flex;
+      gap: 3px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+      max-width: 140px;
+    }
+    .bullet-pip {
+      width: 5px;
+      height: 12px;
+      background: var(--yellow-warn);
+      border-radius: 1px;
+      box-shadow: 0 0 4px var(--yellow-warn);
+      transition: opacity 0.1s;
+    }
+    .bullet-pip.empty {
+      background: rgba(255,255,255,0.1);
+      box-shadow: none;
+    }
+
+    /* wave badge */
+    #waveBadge {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%,-50%) scale(0);
+      font-family: var(--font-title);
+      font-size: 80px;
+      color: var(--gore);
+      text-shadow:
+        0 0 40px var(--blood),
+        3px 3px 0 #000;
+      letter-spacing: 6px;
+      z-index: 200;
+      pointer-events: none;
+      transition: transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.3s;
+      opacity: 0;
+    }
+    #waveBadge.show {
+      transform: translate(-50%,-50%) scale(1);
+      opacity: 1;
+    }
+
+    /* kill feed */
+    #killFeed {
+      position: fixed;
+      right: 20px;
+      top: 90px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .kill-entry {
+      font-family: var(--font-hud);
+      font-size: 11px;
+      color: var(--gore);
+      text-align: right;
+      animation: killFade 2s forwards;
+    }
+    @keyframes killFade {
+      0% { opacity:1; transform: translateX(0); }
+      80% { opacity:1; }
+      100% { opacity:0; transform: translateX(20px); }
+    }
+
+    /* ── OVERLAY SCREENS ────────────────────────────── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 300;
+      transition: opacity 0.4s, transform 0.4s;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(1.04);
+    }
+
+    /* blood drip bg for overlays */
+    .screen-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(139,0,0,0.3) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 80%, rgba(100,0,0,0.2) 0%, transparent 50%),
+        rgba(0,0,0,0.88);
+      backdrop-filter: blur(4px);
+    }
+
+    .screen-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    /* Title */
+    .game-title {
+      font-family: var(--font-title);
+      font-size: clamp(52px, 8vw, 100px);
+      color: #fff;
+      letter-spacing: 8px;
+      line-height: 1;
+      text-shadow:
+        4px 4px 0 var(--blood),
+        8px 8px 0 #3a0000,
+        0 0 60px rgba(200,0,0,0.5);
+      text-align: center;
+    }
+
+    .game-subtitle {
+      font-family: var(--font-horror);
+      font-size: clamp(18px, 3vw, 28px);
+      color: var(--flesh);
+      letter-spacing: 12px;
+      opacity: 0.8;
+      text-align: center;
+    }
+
+    /* Divider */
+    .divider {
+      width: 200px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--blood), transparent);
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: var(--font-title);
+      font-size: 28px;
+      letter-spacing: 4px;
+      color: #fff;
+      background: transparent;
+      border: 2px solid var(--blood);
+      padding: 14px 48px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s;
+      min-width: 220px;
+      text-align: center;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--blood) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      border-color: var(--gore);
+      color: var(--gore);
+      text-shadow: 0 0 20px var(--gore);
+      transform: translateX(4px);
+      box-shadow: -4px 0 0 var(--gore), 0 0 30px rgba(200,0,0,0.3);
+    }
+    .btn:hover::before { opacity: 1; }
+
+    .btn:active { transform: translateX(2px) scale(0.98); }
+
+    .btn-secondary {
+      font-size: 20px;
+      padding: 10px 32px;
+      border-color: rgba(200,200,200,0.3);
+      color: rgba(255,255,255,0.6);
+      min-width: 160px;
+    }
+
+    .btn-secondary:hover {
+      border-color: rgba(255,255,255,0.6);
+      color: #fff;
+      text-shadow: none;
+      box-shadow: none;
+    }
+
+    /* Stats grid on death screen */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 32px;
+      padding: 20px 40px;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(139,0,0,0.3);
+    }
+
+    .stat-item { text-align: center; }
+    .stat-num {
+      font-family: var(--font-title);
+      font-size: 36px;
+      color: var(--gore);
+      text-shadow: 0 0 12px var(--blood);
+    }
+    .stat-name {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+    }
+
+    /* screen title variants */
+    .screen-title {
+      font-family: var(--font-title);
+      letter-spacing: 6px;
+      text-align: center;
+    }
+    .screen-title.dead {
+      font-size: clamp(52px, 9vw, 110px);
+      color: var(--gore);
+      text-shadow:
+        5px 5px 0 #3a0000,
+        0 0 60px rgba(200,0,0,0.7),
+        0 0 120px rgba(139,0,0,0.4);
+      animation: flickerDead 0.1s infinite alternate;
+    }
+    @keyframes flickerDead {
+      from { opacity: 1; }
+      to { opacity: 0.92; }
+    }
+
+    .screen-title.pause {
+      font-size: 64px;
+      color: #fff;
+      text-shadow: 3px 3px 0 var(--blood);
+    }
+
+    /* controls hint */
+    .controls-hint {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 500px;
+    }
+    .control-key {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .key-badge {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 4px 10px;
+      font-family: var(--font-hud);
+      font-size: 13px;
+      color: var(--yellow-warn);
+      border-radius: 3px;
+      min-width: 40px;
+      text-align: center;
+    }
+    .key-desc {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.35);
+      text-transform: uppercase;
+    }
+
+    /* blood splatter effect */
+    .splatter {
+      position: fixed;
+      pointer-events: none;
+      z-index: 500;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--gore), var(--blood), transparent);
+      animation: splatterAnim 0.4s forwards;
+    }
+    @keyframes splatterAnim {
+      0% { transform: scale(0); opacity: 1; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+
+    /* mobile controls */
+    #mobileControls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: none;
+      padding: 16px;
+      z-index: 50;
+      pointer-events: none;
+    }
+    @media (max-width: 768px), (pointer: coarse) {
+      #mobileControls { display: flex; justify-content: space-between; align-items: flex-end; }
+    }
+    .dpad {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr 1fr;
+      gap: 4px;
+      width: 130px;
+      height: 130px;
+    }
+    .dpad-btn {
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(139,0,0,0.5);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: rgba(255,255,255,0.7);
+      pointer-events: all;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    .dpad-btn:active { background: rgba(139,0,0,0.5); }
+    .dpad-center { grid-column: 2; grid-row: 2; background: transparent; border: none; }
+    .action-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .action-btn {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      border: 2px solid var(--blood);
+      background: rgba(0,0,0,0.7);
+      font-family: var(--font-hud);
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--gore);
+      pointer-events: all;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    .action-btn:active { background: rgba(139,0,0,0.5); }
+
+    /* Reload flash */
+    #reloadFlash {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,215,0,0.05);
+      pointer-events: none;
+      z-index: 400;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    /* Hit overlay */
+    #hitOverlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(139,0,0,0.6) 100%);
+      pointer-events: none;
+      z-index: 400;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    /* Best score */
+    .best-score {
+      font-family: var(--font-hud);
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: rgba(255,215,0,0.5);
+      text-transform: uppercase;
+    }
+
+    /* Pause indicator */
+    #pauseIndicator {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-hud);
+      font-size: 10px;
+      letter-spacing: 4px;
+      color: rgba(255,255,255,0.25);
+      z-index: 50;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
-<!-- CANVASES (capas) -->
-<canvas id="c-world"></canvas>
-<canvas id="c-particles"></canvas>
-<canvas id="c-weather"></canvas>
-<canvas id="c-light"></canvas>
 
-<!-- HUD -->
+<div id="gameWrapper">
+  <canvas id="gameCanvas"></canvas>
+</div>
+
+<!-- HUD (visible durante gameplay) -->
 <div id="hud">
-  <div id="hud-top">
-    <div id="hud-stats">
-      <div class="sb"><div class="si">❤</div><div class="bt"><div class="bf" id="b-hp" style="width:100%"></div></div></div>
-      <div class="sb"><div class="si">⚡</div><div class="bt"><div class="bf" id="b-en" style="width:100%"></div></div></div>
-      <div class="sb"><div class="si">🌡</div><div class="bt"><div class="bf" id="b-ht" style="width:100%"></div></div></div>
-      <div class="sb"><div class="si">★</div><div class="bt"><div class="bf" id="b-xp" style="width:0%"></div></div></div>
+  <!-- Vida -->
+  <div class="hud-block">
+    <div class="hud-label">Vida</div>
+    <div id="healthValue" class="hud-value red">100</div>
+    <div id="healthBar"><div id="healthFill" style="width:100%"></div></div>
+  </div>
+
+  <!-- Oleada -->
+  <div class="hud-block" style="text-align:center">
+    <div class="hud-label">Oleada</div>
+    <div id="waveValue" class="hud-value gold">1</div>
+  </div>
+
+  <!-- Score -->
+  <div class="hud-block" style="text-align:center">
+    <div class="hud-label">Puntos</div>
+    <div id="scoreValue" class="hud-value green">0</div>
+  </div>
+
+  <!-- Munición -->
+  <div class="hud-block" style="text-align:right">
+    <div class="hud-label">Munición</div>
+    <div id="ammoValue" class="hud-value">12/∞</div>
+    <div id="ammoBar"></div>
+  </div>
+</div>
+
+<!-- Wave badge -->
+<div id="waveBadge">OLEADA 1</div>
+
+<!-- Kill feed -->
+<div id="killFeed"></div>
+
+<!-- Hit overlay -->
+<div id="hitOverlay"></div>
+<div id="reloadFlash"></div>
+
+<!-- ── PANTALLA PRINCIPAL ───────────────────────────────── -->
+<div class="screen" id="screenMenu">
+  <div class="screen-bg"></div>
+  <div class="screen-content">
+    <div class="game-title">ZOMBIE<br>SURVIVAL</div>
+    <div class="game-subtitle">2 D</div>
+    <div class="divider"></div>
+
+    <div class="controls-hint">
+      <div class="control-key">
+        <div class="key-badge">WASD</div>
+        <div class="key-desc">Mover</div>
+      </div>
+      <div class="control-key">
+        <div class="key-badge">Click</div>
+        <div class="key-desc">Disparar</div>
+      </div>
+      <div class="control-key">
+        <div class="key-badge">R</div>
+        <div class="key-desc">Recargar</div>
+      </div>
+      <div class="control-key">
+        <div class="key-badge">ESC</div>
+        <div class="key-desc">Pausa</div>
+      </div>
     </div>
-    <div id="hud-right">
-      <div id="h-day">Día 1</div>
-      <div id="h-time">Amanecer</div>
-      <div id="h-weather">☀️</div>
+
+    <button class="btn" id="btnPlay">JUGAR</button>
+    <div id="bestScoreMenu" class="best-score">MEJOR: 0 PTS</div>
+  </div>
+</div>
+
+<!-- ── PANTALLA PAUSA ──────────────────────────────────── -->
+<div class="screen hidden" id="screenPause">
+  <div class="screen-bg"></div>
+  <div class="screen-content">
+    <div class="screen-title pause">PAUSA</div>
+    <div class="divider"></div>
+    <button class="btn" id="btnContinue">CONTINUAR</button>
+    <button class="btn btn-secondary" id="btnMenuFromPause">MENÚ</button>
+  </div>
+</div>
+
+<!-- ── PANTALLA MUERTE ─────────────────────────────────── -->
+<div class="screen hidden" id="screenDead">
+  <div class="screen-bg"></div>
+  <div class="screen-content">
+    <div class="screen-title dead">HAS MUERTO</div>
+
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-num" id="statScore">0</div>
+        <div class="stat-name">Puntos</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statWave">1</div>
+        <div class="stat-name">Oleada</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statKills">0</div>
+        <div class="stat-name">Bajas</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statBest">0</div>
+        <div class="stat-name">Récord</div>
+      </div>
     </div>
-  </div>
-  <div id="hud-res">
-    <div class="ri" id="r-wood">🪵 0</div>
-    <div class="ri" id="r-stone">🪨 0</div>
-    <div class="ri" id="r-food">🫐 0</div>
-    <div class="ri" id="r-frags">💎 0</div>
-    <div class="ri" id="r-bone">🦴 0</div>
-    <div class="ri" id="r-metal">⚙️ 0</div>
+
+    <button class="btn" id="btnRetry">REINTENTAR</button>
+    <button class="btn btn-secondary" id="btnMenuFromDead">MENÚ</button>
   </div>
 </div>
 
-<!-- Weather indicator -->
-<div id="weather-hud" id="w-hud"></div>
-
-<!-- Weapon HUD -->
-<div id="weapon-hud">
-  <div class="wslot active" id="wslot-0"><em>✊</em><span>Puños</span></div>
-  <div class="wslot" id="wslot-1"><em>—</em><span>—</span></div>
-  <div class="wslot" id="wslot-2"><em>—</em><span>—</span></div>
-</div>
-
-<!-- Notifs -->
-<div id="notifs"></div>
-
-<!-- Touch controls -->
-<div id="touch-controls">
-  <div id="joy-zone"><div id="joy-base"></div><div id="joy-thumb"></div></div>
-  <div id="act-btns">
-    <button class="abtn" id="btn-atk"><em>⚔️</em>Atacar</button>
-    <button class="abtn" id="btn-run"><em>💨</em>Correr</button>
-    <button class="abtn" id="btn-use"><em>⚡</em>Usar</button>
-    <button class="abtn" id="btn-inv"><em>🎒</em>Bolsa</button>
+<!-- Mobile Controls -->
+<div id="mobileControls">
+  <div class="dpad">
+    <div></div>
+    <div class="dpad-btn" id="dUp">▲</div>
+    <div></div>
+    <div class="dpad-btn" id="dLeft">◀</div>
+    <div class="dpad-center"></div>
+    <div class="dpad-btn" id="dRight">▶</div>
+    <div></div>
+    <div class="dpad-btn" id="dDown">▼</div>
+    <div></div>
   </div>
-  <button id="btn-pause">⏸</button>
-  <button id="btn-craft">🔨</button>
-</div>
-
-<!-- Build menu -->
-<div id="build-menu" class="hidden">
-  <button class="bbtn" id="bb-fire"><em>🔥</em>Fogata<br>4🪵2🪨</button>
-  <button class="bbtn" id="bb-chest"><em>📦</em>Cofre<br>3🪵2🪨</button>
-  <button class="bbtn" id="bb-tower"><em>🗼</em>Torre<br>5🪵5🪨</button>
-  <button class="bbtn" id="bb-shelter"><em>🏕</em>Refugio<br>8🪵3🪨</button>
-  <button class="bbtn" id="bb-wall"><em>🧱</em>Muro<br>2🪨</button>
-  <button class="bbtn" id="bb-trap"><em>🪤</em>Trampa<br>2🪵1🪨</button>
-</div>
-
-<!-- Day transition -->
-<div id="day-trans"><span id="dt-text"></span></div>
-
-<!-- SCREENS -->
-<div id="loading-screen" class="screen">
-  <h1>⛺ ÚLTIMO</h1><h1>CAMPAMENTO</h1>
-  <p>Generando mundo...</p>
-  <div id="lb-track"><div id="lb-fill"></div></div>
-</div>
-
-<div id="main-menu" class="screen hidden">
-  <h1>⛺ ÚLTIMO</h1><h1>CAMPAMENTO</h1>
-  <p>Construye. Sobrevive. Lucha contra la oscuridad.</p>
-  <button class="bmenu" id="btn-new">Nueva Partida</button>
-  <button class="bmenu" id="btn-cont" style="display:none">Continuar</button>
-  <button class="bmenu" id="btn-cred">Créditos</button>
-</div>
-
-<div id="pause-screen" class="screen hidden">
-  <h1>PAUSA</h1>
-  <button class="bmenu" id="btn-res">Reanudar</button>
-  <button class="bmenu" id="btn-build-p">Construir</button>
-  <button class="bmenu" id="btn-craft-p">Craftear</button>
-  <button class="bmenu" id="btn-sq">Guardar y Salir</button>
-</div>
-
-<div id="inv-screen" class="screen hidden">
-  <h1>🎒 INVENTARIO</h1>
-  <div id="inv-body">
-    <div id="inv-resources"></div>
-    <div id="inv-weapons"></div>
+  <div class="action-btns">
+    <button class="action-btn" id="btnReloadMobile">RELOAD</button>
+    <button class="action-btn" id="btnFireMobile">FIRE</button>
   </div>
-  <button class="bmenu" id="btn-inv-close">Cerrar</button>
 </div>
 
-<div id="craft-screen" class="screen hidden">
-  <h1>🔨 CRAFTEO</h1>
-  <div id="craft-list"></div>
-  <button class="bmenu" id="btn-craft-close">Cerrar</button>
-</div>
+<div id="pauseIndicator">ESC — PAUSAR</div>
 
-<div id="gameover-screen" class="screen hidden">
-  <h1>☠️ CAÍDO</h1>
-  <p id="go-msg">Los no muertos te han devorado...</p>
-  <button class="bmenu" id="btn-retry">Reintentar</button>
-  <button class="bmenu" id="btn-go-menu">Menú</button>
-</div>
+<!-- Wave badge overlay -->
+<div id="waveBadge"></div>
 
-<div id="credits-screen" class="screen hidden">
-  <h1>Créditos</h1>
-  <p style="line-height:2;color:#a08050;text-align:center">Último Campamento v2.0<br>Motor Canvas — Partículas — IA Zombis<br>Clima Dinámico — Crafteo — Armas<br>PWA • IndexedDB • Gamepad API<br><br><span style="color:#f0d090">Sobrevive. Construye. Lucha.</span></p>
-  <button class="bmenu" id="btn-cred-back">Volver</button>
-</div>
-
-<script>
-'use strict';
-// ═══════════════════════════════════════════════════════
-//  ÚLTIMO CAMPAMENTO v2  —  Motor completo
-// ═══════════════════════════════════════════════════════
-
-// ─── CONSTANTES ─────────────────────────────────────────
-const C={
-  TILE:32,WW:160,WH:160,
-  FOV:200, FOV_NIGHT:130,
-  DAY_DUR:420,
-  NIGHT_START:.62, DAWN:.88,
-  CF_BASE_LIGHT:110, CF_LIGHT_LVL:35,
-  SPAWN_DIST:380, MAX_ENEMIES:22,
-  AUTOSAVE:55000,
-  GP_DEAD:.18
-};
-
-// ─── UTILS ──────────────────────────────────────────────
-const U={
-  lerp:(a,b,t)=>a+(b-a)*t,
-  clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),
-  dist:(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by),
-  rng:seed=>{let s=seed;return()=>{s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff}},
-  rgba:(r,g,b,a=1)=>`rgba(${r},${g},${b},${a})`,
-  hsla:(h,s,l,a=1)=>`hsla(${h},${s}%,${l}%,${a})`,
-  notify(msg,col='#ffdd88'){
-    const el=document.createElement('div');
-    el.className='notif';el.textContent=msg;el.style.color=col;
-    document.getElementById('notifs').appendChild(el);
-    setTimeout(()=>el.remove(),2400);
-  },
-  rndRange:(rng,a,b)=>a+rng()*(b-a),
-  chance:(rng,p)=>rng()<p
-};
-
-// ─── SISTEMA DE PARTÍCULAS ──────────────────────────────
-class ParticleSystem{
-  constructor(){this.p=[];this.MAX=600}
-  emit(x,y,opts){
-    if(this.p.length>=this.MAX) return;
-    const o={x,y,vx:(opts.vx||0)+(Math.random()-.5)*(opts.spread||2),vy:(opts.vy||-1)+(Math.random()-.5)*(opts.spread||2),
-      life:1,maxLife:opts.life||1,r:opts.r||3,col:opts.col||'#ff8800',
-      fade:opts.fade!==false,shrink:opts.shrink!==false,gravity:opts.gravity||0,
-      type:opts.type||'dot'};
-    this.p.push(o);
-  }
-  emitBurst(x,y,n,opts){for(let i=0;i<n;i++)this.emit(x,y,opts)}
-  update(dt){
-    for(let i=this.p.length-1;i>=0;i--){
-      const p=this.p[i];
-      p.x+=p.vx*dt*60;p.y+=p.vy*dt*60;
-      p.vy+=p.gravity*dt;
-      p.life-=dt/(p.maxLife);
-      if(p.life<=0)this.p.splice(i,1);
-    }
-  }
-  draw(ctx,camX,camY){
-    for(const p of this.p){
-      const sx=p.x-camX,sy=p.y-camY;
-      const a=p.fade?p.life:1;
-      const r=p.shrink?p.r*p.life:p.r;
-      ctx.save();ctx.globalAlpha=U.clamp(a,0,1);
-      if(p.type==='smoke'){
-        const g=ctx.createRadialGradient(sx,sy,0,sx,sy,r);
-        g.addColorStop(0,p.col);g.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle=g;
-      } else ctx.fillStyle=p.col;
-      ctx.beginPath();ctx.arc(sx,sy,Math.max(.5,r),0,Math.PI*2);ctx.fill();
-      ctx.restore();
-    }
-  }
-}
-
-// ─── SISTEMA CLIMÁTICO ──────────────────────────────────
-class WeatherSystem{
-  constructor(){
-    this.state='clear'; // clear|cloudy|rain|storm|fog
-    this.intensity=0;   // 0-1
-    this.transTimer=0;
-    this.stateTimer=0;
-    this.nextState='clear';
-    this.nextDelay=60+Math.random()*120;
-    this.rainDrops=[];
-    this.fogParticles=[];
-    this.lightning={active:false,timer:0,x:0,y:0,flash:0};
-    this.wind={x:.3,y:.1};
-    this._initRain();
-    this._initFog();
-  }
-  _initRain(){
-    for(let i=0;i<400;i++){
-      this.rainDrops.push({x:Math.random()*900,y:Math.random()*700,
-        speed:8+Math.random()*6,len:10+Math.random()*15,alpha:Math.random()});
-    }
-  }
-  _initFog(){
-    for(let i=0;i<30;i++){
-      this.fogParticles.push({x:Math.random()*900,y:Math.random()*700,
-        r:60+Math.random()*120,vx:(.3+Math.random()*.4)*(Math.random()<.5?1:-1),vy:(Math.random()-.5)*.2,
-        alpha:Math.random()*.3+.1});
-    }
-  }
-  update(dt,W,H){
-    this.stateTimer+=dt;
-    this.nextDelay-=dt;
-    if(this.nextDelay<=0){
-      this.transTimer=6;
-      const states=['clear','clear','cloudy','rain','storm','fog'];
-      this.nextState=states[Math.floor(Math.random()*states.length)];
-      this.nextDelay=80+Math.random()*160;
-    }
-    if(this.transTimer>0){
-      this.transTimer-=dt;
-      const t=1-this.transTimer/6;
-      this.intensity=U.lerp(this.intensity,this.nextState==='clear'?0:.7,t*.05);
-      if(this.transTimer<=0){this.state=this.nextState;if(this.state==='clear')this.intensity=0}
-    }
-    // Lluvia
-    if(this.state==='rain'||this.state==='storm'){
-      const spd=this.state==='storm'?1.8:1;
-      for(const d of this.rainDrops){
-        d.y+=d.speed*spd*dt*60;d.x+=this.wind.x*2*spd*dt*60;
-        if(d.y>H+20)d.y=-10;
-        if(d.x>W+20)d.x=-20;
-      }
-    }
-    // Relámpagos (tormenta)
-    if(this.state==='storm'){
-      this.lightning.flash=Math.max(0,this.lightning.flash-dt*3);
-      if(Math.random()<dt*.4){
-        this.lightning.flash=1;
-        this.lightning.x=Math.random()*W;
-        this.lightning.y=Math.random()*H*.5;
-      }
-    }
-    // Niebla
-    if(this.state==='fog'){
-      for(const f of this.fogParticles){
-        f.x+=f.vx*dt*30;f.y+=f.vy*dt*30;
-        if(f.x>W+150)f.x=-150;if(f.x<-150)f.x=W+150;
-        if(f.y>H+100)f.y=-100;if(f.y<-100)f.y=H+100;
-      }
-    }
-  }
-  draw(ctx,W,H,camX,camY){
-    ctx.clearRect(0,0,W,H);
-    if(this.state==='clear')return;
-    // Niebla
-    if(this.state==='fog'){
-      ctx.save();ctx.globalAlpha=.5;
-      for(const f of this.fogParticles){
-        const g=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r);
-        g.addColorStop(0,`rgba(180,200,220,${f.alpha})`);
-        g.addColorStop(1,'rgba(180,200,220,0)');
-        ctx.fillStyle=g;ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);ctx.fill();
-      }
-      ctx.restore();
-      return;
-    }
-    // Nublado — overlay oscuro suave
-    if(this.state==='cloudy'||this.state==='rain'||this.state==='storm'){
-      const alpha=this.state==='cloudy'?.12:this.state==='rain'?.2:.3;
-      ctx.fillStyle=`rgba(20,25,40,${alpha})`;
-      ctx.fillRect(0,0,W,H);
-    }
-    // Lluvia
-    if(this.state==='rain'||this.state==='storm'){
-      ctx.save();ctx.strokeStyle='rgba(160,200,255,0.35)';
-      ctx.lineWidth=1;
-      for(const d of this.rainDrops){
-        ctx.globalAlpha=d.alpha*.6;
-        ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d.x+this.wind.x*d.len*.5,d.y+d.len);ctx.stroke();
-      }
-      ctx.restore();
-    }
-    // Relámpago
-    if(this.state==='storm'&&this.lightning.flash>0){
-      ctx.save();ctx.globalAlpha=this.lightning.flash*.6;
-      ctx.fillStyle='rgba(200,220,255,1)';ctx.fillRect(0,0,W,H);
-      ctx.restore();
-    }
-  }
-  get fogRadius(){return this.state==='fog'?120:this.state==='storm'?160:0}
-  get rainDmgPerSec(){return this.state==='storm'?.5:0}
-  get label(){const l={clear:'☀️',cloudy:'☁️',rain:'🌧️',storm:'⛈️',fog:'🌫️'};return l[this.state]||''}
-}
-
-// ─── RECETAS DE CRAFTEO ─────────────────────────────────
-const RECIPES=[
-  {id:'axe',name:'Hacha de Piedra',icon:'🪓',
-   cost:{wood:3,stone:2},result:{type:'weapon',id:'axe',name:'Hacha',icon:'🪓',dmg:18,speed:1.1,range:40},
-   desc:'Tala árboles 3x más rápido. Daño contra zombis.'},
-  {id:'spear',name:'Lanza de Madera',icon:'🗡️',
-   cost:{wood:5,stone:1},result:{type:'weapon',id:'spear',name:'Lanza',icon:'🗡️',dmg:22,speed:1.4,range:55},
-   desc:'Largo alcance. Buena contra lobos.'},
-  {id:'sword',name:'Espada de Metal',icon:'⚔️',
-   cost:{metal:4,wood:2},result:{type:'weapon',id:'sword',name:'Espada',icon:'⚔️',dmg:35,speed:.9,range:45},
-   desc:'Alta resistencia. Ideal vs bestias.'},
-  {id:'torch',name:'Antorcha',icon:'🔦',
-   cost:{wood:2,food:1},result:{type:'weapon',id:'torch',name:'Antorcha',icon:'🔦',dmg:10,speed:1,range:38,light:90},
-   desc:'Ilumina la noche. Ahuyenta sombras.'},
-  {id:'bow',name:'Arco Primitivo',icon:'🏹',
-   cost:{wood:4,bone:2},result:{type:'weapon',id:'bow',name:'Arco',icon:'🏹',dmg:28,speed:1.8,range:140,ranged:true},
-   desc:'Ataque a distancia. Requiere huesos.'},
-  {id:'armor',name:'Armadura de Cuero',icon:'🛡️',
-   cost:{bone:5,wood:3},result:{type:'armor',id:'armor',name:'Armadura',icon:'🛡️',defense:15},
-   desc:'Reduce daño recibido en 15 pts.'},
-  {id:'medkit',name:'Botiquín',icon:'💊',
-   cost:{food:3,wood:1},result:{type:'consumable',id:'medkit',name:'Botiquín',icon:'💊',heal:50},
-   desc:'Cura 50 puntos de vida.'},
-  {id:'torch_big',name:'Antorcha Grande',icon:'🕯️',
-   cost:{wood:4,stone:2},result:{type:'building',id:'torch_big',name:'Farol',icon:'🕯️',light:110},
-   desc:'Farol permanente de luz.'},
-  {id:'bandage',name:'Vendaje',icon:'🩹',
-   cost:{food:1,wood:1},result:{type:'consumable',id:'bandage',name:'Vendaje',icon:'🩹',heal:20},
-   desc:'Cura básica rápida.'},
-  {id:'pickaxe',name:'Pico de Piedra',icon:'⛏️',
-   cost:{wood:2,stone:3},result:{type:'weapon',id:'pickaxe',name:'Pico',icon:'⛏️',dmg:20,speed:1,range:40},
-   desc:'Extrae piedra 3x más rápido.'},
-];
-
-// ─── ARMAS ──────────────────────────────────────────────
-const WEAPONS_DEFAULT={
-  fist:{id:'fist',name:'Puños',icon:'✊',dmg:6,speed:1,range:38,ranged:false}
-};
-
-// ─── SAVE MANAGER ───────────────────────────────────────
-class SaveManager{
-  constructor(){this.db=null}
-  async init(){
-    return new Promise(res=>{
-      const r=indexedDB.open('UC2',2);
-      r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('saves'))db.createObjectStore('saves',{keyPath:'id'})};
-      r.onsuccess=e=>{this.db=e.target.result;res()};
-      r.onerror=()=>res();
-    });
-  }
-  async save(data){
-    if(!this.db){localStorage.setItem('uc2',JSON.stringify(data));return}
-    return new Promise(res=>{
-      const tx=this.db.transaction('saves','readwrite');
-      tx.objectStore('saves').put({id:'s1',...data,at:Date.now()});
-      tx.oncomplete=res;
-    });
-  }
-  async load(){
-    if(!this.db){const s=localStorage.getItem('uc2');return s?JSON.parse(s):null}
-    return new Promise(res=>{
-      const tx=this.db.transaction('saves','readonly');
-      const r=tx.objectStore('saves').get('s1');
-      r.onsuccess=()=>res(r.result||null);
-      r.onerror=()=>res(null);
-    });
-  }
-  async hasSave(){return!!(await this.load())}
-}
-
-// ─── INPUT MANAGER ──────────────────────────────────────
-class InputManager{
-  constructor(){
-    this.keys={};
-    this.joy={x:0,y:0,active:false};
-    this.act={attack:false,run:false,use:false,inv:false,pause:false,craft:false};
-    this._jt=null;this._jo={x:0,y:0};
-    this._initKB();this._initTouch();this._initBtns();
-  }
-  _initKB(){
-    window.addEventListener('keydown',e=>{
-      this.keys[e.code]=true;
-      if(e.code==='Space'||e.code==='KeyZ')this.act.attack=true;
-      if(e.code==='KeyE')this.act.use=true;
-      if(e.code==='KeyI')this.act.inv=true;
-      if(e.code==='Escape')this.act.pause=true;
-      if(e.code==='KeyC')this.act.craft=true;
-      if(e.code==='ShiftLeft')this.act.run=true;
-      e.preventDefault();
-    });
-    window.addEventListener('keyup',e=>{
-      this.keys[e.code]=false;
-      if(e.code==='ShiftLeft')this.act.run=false;
-      if(e.code==='Space'||e.code==='KeyZ')this.act.attack=false;
-    });
-  }
-  _initTouch(){
-    const zone=document.getElementById('joy-zone');
-    const thumb=document.getElementById('joy-thumb');
-    const R=50;
-    zone.addEventListener('touchstart',e=>{
-      e.preventDefault();
-      const t=e.changedTouches[0];
-      const rc=zone.getBoundingClientRect();
-      this._jt=t.identifier;
-      this._jo={x:rc.left+rc.width/2,y:rc.top+rc.height/2};
-      this.joy.active=true;
-    },{passive:false});
-    zone.addEventListener('touchmove',e=>{
-      e.preventDefault();
-      for(const t of e.changedTouches){
-        if(t.identifier!==this._jt)continue;
-        const dx=t.clientX-this._jo.x,dy=t.clientY-this._jo.y;
-        const m=Math.hypot(dx,dy);
-        this.joy.x=m>R?dx/m:dx/R;this.joy.y=m>R?dy/m:dy/R;
-        const cx=U.clamp(dx,-R,R),cy=U.clamp(dy,-R,R);
-        thumb.style.transform=`translate(calc(-50% + ${cx}px),calc(-50% + ${cy}px))`;
-      }
-    },{passive:false});
-    const end=e=>{
-      for(const t of e.changedTouches){
-        if(t.identifier===this._jt){
-          this.joy.x=0;this.joy.y=0;this.joy.active=false;this._jt=null;
-          thumb.style.transform='translate(-50%,-50%)';
-        }
-      }
-    };
-    zone.addEventListener('touchend',end);zone.addEventListener('touchcancel',end);
-  }
-  _initBtns(){
-    const bind=(id,act,toggle=false)=>{
-      const el=document.getElementById(id);if(!el)return;
-      el.addEventListener('touchstart',e=>{e.preventDefault();this.act[act]=true;el.classList.add('active')},{passive:false});
-      el.addEventListener('touchend',e=>{e.preventDefault();if(!toggle)this.act[act]=false;el.classList.remove('active')});
-      el.addEventListener('click',()=>{this.act[act]=true;setTimeout(()=>this.act[act]=false,120)});
-    };
-    bind('btn-atk','attack');bind('btn-run','run');bind('btn-use','use');bind('btn-inv','inv');bind('btn-pause','pause');bind('btn-craft','craft');
-  }
-  getMov(){
-    let x=this.joy.x,y=this.joy.y;
-    if(this.keys['ArrowLeft']||this.keys['KeyA'])x-=1;
-    if(this.keys['ArrowRight']||this.keys['KeyD'])x+=1;
-    if(this.keys['ArrowUp']||this.keys['KeyW'])y-=1;
-    if(this.keys['ArrowDown']||this.keys['KeyS'])y+=1;
-    const m=Math.hypot(x,y);if(m>1){x/=m;y/=m;}
-    return{x,y};
-  }
-  consume(a){const v=this.act[a];this.act[a]=false;return v}
-}
-
-// ─── GAMEPAD MANAGER ────────────────────────────────────
-class GamepadManager{
-  constructor(inp){this.inp=inp;this._p={};this._on=false;
-    window.addEventListener('gamepadconnected',()=>{this._on=true;U.notify('🎮 Mando conectado')});
-    window.addEventListener('gamepaddisconnected',()=>this._on=false);
-  }
-  update(){
-    if(!this._on)return;
-    const gps=navigator.getGamepads?navigator.getGamepads():[];
-    const g=gps[0];if(!g)return;
-    const lx=Math.abs(g.axes[0])>C.GP_DEAD?g.axes[0]:0;
-    const ly=Math.abs(g.axes[1])>C.GP_DEAD?g.axes[1]:0;
-    this.inp.joy.x=lx;this.inp.joy.y=ly;this.inp.joy.active=Math.hypot(lx,ly)>C.GP_DEAD;
-    const b=i=>g.buttons[i]&&g.buttons[i].pressed;
-    if(b(0)&&!this._p[0])this.inp.act.attack=true;
-    if(b(1))this.inp.act.run=true;else if(!this.inp.keys['ShiftLeft'])this.inp.act.run=false;
-    if(b(2)&&!this._p[2])this.inp.act.use=true;
-    if(b(3)&&!this._p[3])this.inp.act.inv=true;
-    if(b(9)&&!this._p[9])this.inp.act.pause=true;
-    for(let i=0;i<10;i++)this._p[i]=b(i);
-  }
-}
-
-// ─── MUNDO ──────────────────────────────────────────────
-class World{
-  constructor(seed){
-    this.seed=seed;this.rand=U.rng(seed);
-    this.W=C.WW*C.TILE;this.H=C.WH*C.TILE;
-    this.objects=[];
-    this.explored=new Uint8Array(C.WW*C.WH);
-    this.ipoints=[];
-    this._gen();
-  }
-  _r(){return this.rand()}
-  _gen(){
-    const r=this._r.bind(this),W=this.W,H=this.H;
-    // Lagos grandes
-    for(let i=0;i<10;i++){
-      const x=100+r()*(W-200),y=100+r()*(H-200);
-      const w=90+r()*180,h=70+r()*130;
-      if(this._near(x,y,200))continue;
-      this.objects.push({type:'lake',x,y,w,h,color:U.rgba(20,60,160,.85),data:{}});
-    }
-    // Árboles 700
-    for(let i=0;i<700;i++){
-      const x=80+r()*(W-160),y=80+r()*(H-160);
-      if(this._near(x,y,200)||this._inLake(x,y))continue;
-      const rad=10+r()*13;
-      this.objects.push({type:'tree',x,y,r:rad,
-        color:U.hsla(115+r()*35,48+r()*18,18+r()*14),
-        top:U.hsla(115+r()*35,48+r()*18,28+r()*10),
-        hp:3,maxHp:3,data:{wood:2+Math.floor(r()*3)}});
-    }
-    // Árboles gigantes 10
-    for(let i=0;i<10;i++){
-      const x=120+r()*(W-240),y=120+r()*(H-240);
-      if(this._near(x,y,250)||this._inLake(x,y))continue;
-      this.objects.push({type:'giant_tree',x,y,r:26+r()*14,
-        color:U.hsla(110,52,14),top:U.hsla(110,52,24),
-        hp:8,maxHp:8,data:{wood:8,fragments:r()<.35?1:0}});
-      this.ipoints.push({x,y,label:'Árbol Gigante'});
-    }
-    // Rocas 300
-    for(let i=0;i<300;i++){
-      const x=80+r()*(W-160),y=80+r()*(H-160);
-      if(this._near(x,y,140)||this._inLake(x,y))continue;
-      const rad=7+r()*11;
-      this.objects.push({type:'rock',x,y,r:rad,
-        color:U.hsla(20,5,28+r()*22),
-        hp:2,maxHp:2,data:{stone:1+Math.floor(r()*3),metal:r()<.15?1:0}});
-    }
-    // Arbustos 320
-    for(let i=0;i<320;i++){
-      const x=80+r()*(W-160),y=80+r()*(H-160);
-      if(this._inLake(x,y))continue;
-      const rad=7+r()*9;
-      this.objects.push({type:'bush',x,y,r:rad,
-        color:U.hsla(100+r()*30,42+r()*20,20+r()*14),
-        hp:1,maxHp:1,data:{food:1+Math.floor(r()*2),bone:r()<.1?1:0,fragments:r()<.06?1:0}});
-    }
-    // Ruinas 14
-    for(let i=0;i<14;i++){
-      const x=120+r()*(W-240),y=120+r()*(H-240);
-      if(this._near(x,y,240)||this._inLake(x,y))continue;
-      this.objects.push({type:'ruin',x,y,r:20+r()*18,
-        color:U.rgba(88,76,65,.85),data:{looted:false,
-        wood:Math.floor(r()*6),stone:Math.floor(r()*5),metal:Math.floor(r()*2),fragments:r()<.45?1:0}});
-      this.ipoints.push({x,y,label:'Ruinas'});
-    }
-    // Cofres 25
-    for(let i=0;i<25;i++){
-      const x=120+r()*(W-240),y=120+r()*(H-240);
-      if(this._near(x,y,240)||this._inLake(x,y))continue;
-      this.objects.push({type:'chest',x,y,r:10,color:U.rgba(155,110,35,.95),
-        data:{opened:false,wood:Math.floor(r()*8),stone:Math.floor(r()*6),
-        food:Math.floor(r()*5),bone:Math.floor(r()*3),metal:Math.floor(r()*2),fragments:r()<.55?1:0}});
-      this.ipoints.push({x,y,label:'Cofre'});
-    }
-    // Campamentos abandonados 10
-    for(let i=0;i<10;i++){
-      const x=140+r()*(W-280),y=140+r()*(H-280);
-      if(this._near(x,y,250)||this._inLake(x,y))continue;
-      this.objects.push({type:'abandoned_camp',x,y,r:20,color:U.rgba(95,65,25,.7),
-        data:{looted:false,wood:5+Math.floor(r()*5),bone:2+Math.floor(r()*3),fragments:1}});
-      this.ipoints.push({x,y,label:'Campamento'});
-    }
-    // Lagos pequeños ocultos 18
-    for(let i=0;i<18;i++){
-      const x=100+r()*(W-200),y=100+r()*(H-200);
-      if(this._near(x,y,320))continue;
-      const w=30+r()*55,h=22+r()*45;
-      this.objects.push({type:'lake',x,y,w,h,color:U.rgba(15,50,145,.82),data:{}});
-      if(r()<.4)this.ipoints.push({x,y,label:'Lago Oculto'});
-    }
-    // Minerales de metal 40
-    for(let i=0;i<40;i++){
-      const x=100+r()*(W-200),y=100+r()*(H-200);
-      if(this._near(x,y,200)||this._inLake(x,y))continue;
-      this.objects.push({type:'ore',x,y,r:8+r()*7,
-        color:U.rgba(90,80,110,.9),hp:3,maxHp:3,
-        data:{metal:2+Math.floor(r()*3)}});
-      this.ipoints.push({x,y,label:'Mineral'});
-    }
-  }
-  _near(x,y,d){return U.dist(x,y,this.W/2,this.H/2)<d}
-  _inLake(x,y){return this.objects.some(o=>o.type==='lake'&&Math.abs(o.x-x)<(o.w||80)/2&&Math.abs(o.y-y)<(o.h||60)/2)}
-  explore(px,py,fov){
-    const r=fov||C.FOV;
-    const tx1=Math.max(0,Math.floor((px-r)/C.TILE));
-    const tx2=Math.min(C.WW-1,Math.ceil((px+r)/C.TILE));
-    const ty1=Math.max(0,Math.floor((py-r)/C.TILE));
-    const ty2=Math.min(C.WH-1,Math.ceil((py+r)/C.TILE));
-    for(let ty=ty1;ty<=ty2;ty++)for(let tx=tx1;tx<=tx2;tx++){
-      const wx=tx*C.TILE+C.TILE/2,wy=ty*C.TILE+C.TILE/2;
-      if(U.dist(px,py,wx,wy)<=r)this.explored[ty*C.WW+tx]=1;
-    }
-  }
-  isTileExplored(tx,ty){
-    if(tx<0||ty<0||tx>=C.WW||ty>=C.WH)return false;
-    return this.explored[ty*C.WW+tx]===1;
-  }
-  getInRect(x1,y1,x2,y2){return this.objects.filter(o=>o.x>=x1&&o.x<=x2&&o.y>=y1&&o.y<=y2)}
-  getNear(px,py,radius){const r2=radius*radius;return this.objects.filter(o=>{const dx=o.x-px,dy=o.y-py;return dx*dx+dy*dy<=r2})}
-  remove(obj){const i=this.objects.indexOf(obj);if(i>=0)this.objects.splice(i,1)}
-  serialize(){return{seed:this.seed,explored:Array.from(this.explored),objects:this.objects.map(o=>({...o}))}}
-  static deserialize(d){const w=new World(d.seed);w.explored=new Uint8Array(d.explored);w.objects=d.objects;return w}
-}
-
-// ─── INVENTARIO ──────────────────────────────────────────
-class Inventory{
-  constructor(){
-    this.res={wood:0,stone:0,food:0,fragments:0,bone:0,metal:0};
-    this.weapons=[];
-    this.armor=null;
-    this.equipped=null; // weapon id
-    this.consumables=[];
-  }
-  addRes(type,n=1){if(this.res.hasOwnProperty(type))this.res[type]+=n}
-  spend(type,n){if(this.res[type]>=n){this.res[type]-=n;return true}return false}
-  spendMap(map){for(const[k,v]of Object.entries(map))if(this.res[k]<v)return false;for(const[k,v]of Object.entries(map))this.res[k]-=v;return true}
-  has(type,n=1){return this.res[type]>=n}
-  addWeapon(w){if(!this.weapons.find(x=>x.id===w.id))this.weapons.push({...w})}
-  equipWeapon(id){this.equipped=id}
-  getEquipped(){return this.weapons.find(w=>w.id===this.equipped)||WEAPONS_DEFAULT.fist}
-  addConsumable(c){this.consumables.push({...c})}
-  useConsumable(id){const i=this.consumables.findIndex(c=>c.id===id);if(i>=0){const c=this.consumables[i];this.consumables.splice(i,1);return c}return null}
-  setArmor(a){this.armor=a}
-  get defense(){return this.armor?this.armor.defense:0}
-  serialize(){return{res:{...this.res},weapons:[...this.weapons],armor:this.armor,equipped:this.equipped,consumables:[...this.consumables]}}
-  static deserialize(d){const inv=new Inventory();inv.res={...d.res};inv.weapons=d.weapons||[];inv.armor=d.armor||null;inv.equipped=d.equipped||null;inv.consumables=d.consumables||[];return inv}
-}
-
-// ─── FOGATA ──────────────────────────────────────────────
-class Campfire{
-  constructor(x,y,level=1){
-    this.x=x;this.y=y;this.level=level;
-    this.wood=12;this.maxWood=25+level*10;
-    this.fA=0;this.type='campfire';this.r=12;
-  }
-  get lightR(){return C.CF_BASE_LIGHT+this.level*C.CF_LIGHT_LVL}
-  get burnRate(){return Math.max(.018,.07-this.level*.01)}
-  get isAlive(){return this.wood>0}
-  get protR(){return this.lightR*.88}
-  update(dt){
-    this.fA+=dt*9;
-    if(this.isAlive)this.wood=Math.max(0,this.wood-this.burnRate*dt);
-  }
-  addWood(n){this.wood=Math.min(this.maxWood,this.wood+n)}
-  upgrade(){if(this.level<5){this.level++;return true}return false}
-  serialize(){return{x:this.x,y:this.y,level:this.level,wood:this.wood,type:this.type}}
-  static deserialize(d){const cf=new Campfire(d.x,d.y,d.level);cf.wood=d.wood;return cf}
-}
-
-// ─── CONSTRUCCIONES SIMPLES ──────────────────────────────
-function makeBuilding(type,x,y){
-  return{type,x,y,r:16,isAlive:true,fA:0,
-    update(dt){this.fA+=dt},
-    serialize(){return{type:this.type,x:this.x,y:this.y}},
-    lightR:type==='torch_big'?110:0,
-  };
-}
-
-// ─── JUGADOR ─────────────────────────────────────────────
-class Player{
-  constructor(x,y){
-    this.x=x;this.y=y;
-    this.hp=100;this.maxHp=100;
-    this.energy=100;this.maxEnergy=100;
-    this.heat=100;this.maxHeat=100;
-    this.xp=0;this.xpNext=100;this.level=1;
-    this.speed=118;
-    this.r=10;
-    this.facing={x:0,y:1};
-    this.isRunning=false;
-    this.isDead=false;
-    this.walkT=0;
-    this.hurtFlash=0;
-    this.attackCooldown=0;
-    this.attacking=false;
-    this.atkSwing=0;
-    this.iframes=0;
-  }
-  update(dt,input,world,constructions,dn,weather,inventory){
-    if(this.isDead)return;
-    const mv=input.getMov();
-    this.isRunning=(input.act.run||input.keys['ShiftLeft'])&&this.energy>5;
-    const spd=this.isRunning?this.speed*1.75:this.speed;
-    if(Math.abs(mv.x)>.05||Math.abs(mv.y)>.05){
-      this.facing.x=mv.x;this.facing.y=mv.y;
-      this.walkT+=dt*(this.isRunning?13:7);
-      let nx=this.x+mv.x*spd*dt,ny=this.y+mv.y*spd*dt;
-      nx=U.clamp(nx,this.r,world.W-this.r);ny=U.clamp(ny,this.r,world.H-this.r);
-      const near=world.getNear(nx,ny,65);
-      for(const o of near){
-        if(o.type==='tree'||o.type==='giant_tree'||o.type==='rock'||o.type==='ore'||o.type==='wall'){
-          const d=U.dist(nx,ny,o.x,o.y),md=this.r+(o.r||12);
-          if(d<md){const a=Math.atan2(ny-o.y,nx-o.x);nx=o.x+Math.cos(a)*md;ny=o.y+Math.sin(a)*md;}
-        }
-        if(o.type==='lake'){
-          const lw=(o.w||80)/2,lh=(o.h||60)/2;
-          if(Math.abs(nx-o.x)<lw+this.r&&Math.abs(ny-o.y)<lh+this.r){
-            const dx=nx-o.x,dy=ny-o.y;
-            const ex=Math.sign(dx)*(lw+this.r)-dx,ey=Math.sign(dy)*(lh+this.r)-dy;
-            if(Math.abs(ex)<Math.abs(ey))nx+=ex;else ny+=ey;
-          }
-        }
-      }
-      this.x=nx;this.y=ny;
-    }
-    if(this.isRunning&&(Math.abs(mv.x)>.05||Math.abs(mv.y)>.05))
-      this.energy=Math.max(0,this.energy-13*dt);
-    else this.energy=Math.min(this.maxEnergy,this.energy+3.5*dt);
-    // Calor
-    const night=dn.isNight;
-    let hd=night?4.5*dt:.4*dt;
-    // Lluvia enfría más
-    if(weather.state==='rain')hd+=1.5*dt;
-    if(weather.state==='storm')hd+=3*dt;
-    for(const cf of constructions.filter(c=>c.type==='campfire'&&c.isAlive)){
-      const d=U.dist(this.x,this.y,cf.x,cf.y);
-      if(d<cf.lightR){hd=-9*dt*(1-d/cf.lightR);break;}
-    }
-    this.heat=U.clamp(this.heat-hd,0,this.maxHeat);
-    if(this.heat<=0)this.hp=Math.max(0,this.hp-6*dt);
-    // Daño tormenta si no tiene refugio cerca
-    if(weather.state==='storm'){
-      const inShelter=constructions.some(c=>c.type==='shelter'&&U.dist(this.x,this.y,c.x,c.y)<80);
-      if(!inShelter)this.hp=Math.max(0,this.hp-weather.rainDmgPerSec*dt);
-    }
-    if(this.attackCooldown>0)this.attackCooldown-=dt;
-    if(this.iframes>0)this.iframes-=dt;
-    if(this.hurtFlash>0)this.hurtFlash-=dt;
-    if(this.atkSwing>0)this.atkSwing-=dt*3;
-    if(this.hp<=0)this.isDead=true;
-  }
-  attack(inventory,enemies,particles){
-    if(this.attackCooldown>0)return false;
-    const w=inventory.getEquipped();
-    this.attackCooldown=w.speed||1;
-    this.attacking=true;this.atkSwing=.4;
-    const range=w.range||38;
-    let hit=false;
-    for(const e of enemies){
-      if(e.isDead)continue;
-      const d=U.dist(this.x,this.y,e.x,e.y);
-      if(d<range+e.r){
-        const dmg=Math.max(1,w.dmg-(inventory.defense||0)*.2);
-        e.takeDamage(dmg);
-        hit=true;
-        // Partículas sangre
-        for(let i=0;i<5;i++)particles.emit(e.x,e.y,{vx:(Math.random()-.5)*4,vy:-Math.random()*3-1,col:'#cc2020',r:3+Math.random()*2,life:.5,spread:2});
-        // XP
-        if(e.isDead){this.xp+=e.xpVal||20;if(this.xp>=this.xpNext){this.level++;this.xp-=this.xpNext;this.xpNext=Math.floor(this.xpNext*1.5);this.maxHp+=10;this.hp=this.maxHp;U.notify(`★ NIVEL ${this.level} — Vida máxima aumentada`,'#ddaaff');}}
-      }
-    }
-    return hit;
-  }
-  takeDamage(dmg,inventory){
-    if(this.iframes>0)return;
-    const real=Math.max(1,dmg-(inventory?inventory.defense:0));
-    this.hp=Math.max(0,this.hp-real);
-    this.hurtFlash=.35;this.iframes=.4;
-    if(this.hp<=0)this.isDead=true;
-  }
-  heal(n){this.hp=Math.min(this.maxHp,this.hp+n)}
-  serialize(){return{x:this.x,y:this.y,hp:this.hp,energy:this.energy,heat:this.heat,xp:this.xp,xpNext:this.xpNext,level:this.level,maxHp:this.maxHp}}
-  static deserialize(d){const p=new Player(d.x,d.y);p.hp=d.hp;p.energy=d.energy;p.heat=d.heat;p.xp=d.xp||0;p.xpNext=d.xpNext||100;p.level=d.level||1;p.maxHp=d.maxHp||100;return p}
-}
-
-// ─── ENEMIGOS ─────────────────────────────────────────────
-const ENEMY_DEFS={
-  zombie:{hp:40,speed:42,dmg:12,r:13,xpVal:20,
-    color:'#3a5a3a',darkColor:'#1a3a1a',eyeColor:'#ff4400',
-    patrol:true,detectR:240,attackR:22,attackCD:1.5},
-  zombie_fast:{hp:28,speed:75,dmg:9,r:11,xpVal:28,
-    color:'#2a4a2a',darkColor:'#0a2a0a',eyeColor:'#ff6600',
-    patrol:true,detectR:300,attackR:20,attackCD:1},
-  zombie_big:{hp:120,speed:28,dmg:28,r:19,xpVal:55,
-    color:'#3a4a2a',darkColor:'#1a2a0a',eyeColor:'#ff2200',
-    patrol:false,detectR:200,attackR:30,attackCD:2.2},
-  shadow:{hp:30,speed:58,dmg:8,r:12,xpVal:15,
-    color:'#180030',darkColor:'#080015',eyeColor:'#ff0088',
-    patrol:false,detectR:260,attackR:20,attackCD:1.2},
-  wolf:{hp:65,speed:95,dmg:16,r:14,xpVal:35,
-    color:'#4a3a28',darkColor:'#2a1a0a',eyeColor:'#ffcc00',
-    patrol:true,detectR:330,attackR:22,attackCD:1.1},
-  beast:{hp:180,speed:62,dmg:32,r:20,xpVal:80,
-    color:'#3a0a0a',darkColor:'#1a0000',eyeColor:'#ff0000',
-    patrol:false,detectR:360,attackR:35,attackCD:2},
-};
-
-class Enemy{
-  constructor(type,x,y){
-    this.type=type;
-    const d=ENEMY_DEFS[type]||ENEMY_DEFS.zombie;
-    Object.assign(this,d);
-    this.x=x;this.y=y;
-    this.maxHp=this.hp;
-    this.atkCD=0;this.isDead=false;
-    this.fT=Math.random()*Math.PI*2;
-    this.state='patrol'; // patrol|chase|attack|flee
-    this.patrolTarget={x:x+(-1+Math.random()*2)*150,y:y+(-1+Math.random()*2)*150};
-    this.patrolTimer=0;
-    this.stuckTimer=0;
-    this.lastX=x;this.lastY=y;
-    this.alertBubble=0;
-    this.deathAnim=0;
-    // SÓLO DE NOCHE: los zombis duermen de día
-    this.sleeping=true;
-  }
-  update(dt,player,constructions,dayNight){
-    if(this.isDead){this.deathAnim=Math.min(1,this.deathAnim+dt*3);return}
-    this.fT+=dt*2.5;
-    if(this.atkCD>0)this.atkCD-=dt;
-    // Zombis duermen de día
-    const isNight=dayNight.isNight;
-    if(!isNight){
-      this.sleeping=true;
-      // Sólo el lobo y bestia rondan de día
-      if(this.type==='wolf'||this.type==='beast')this.sleeping=false;
-    } else {
-      this.sleeping=false;
-    }
-    if(this.sleeping){this._wander(dt,.5);return}
-    // Huir de fogatas
-    for(const cf of constructions.filter(c=>c.type==='campfire'&&c.isAlive)){
-      const d=U.dist(this.x,this.y,cf.x,cf.y);
-      if(d<cf.protR*1.15){
-        const a=Math.atan2(this.y-cf.y,this.x-cf.x);
-        this.x+=Math.cos(a)*this.speed*1.1*dt;
-        this.y+=Math.sin(a)*this.speed*1.1*dt;
-        this.state='flee';return;
-      }
-    }
-    const pd=U.dist(this.x,this.y,player.x,player.y);
-    if(pd<this.detectR){
-      this.state='chase';this.alertBubble=Math.min(1,this.alertBubble+dt*2);
-      const angle=Math.atan2(player.y-this.y,player.x-this.x);
-      this.x+=Math.cos(angle)*this.speed*dt;
-      this.y+=Math.sin(angle)*this.speed*dt;
-      if(pd<this.attackR+player.r&&this.atkCD<=0){
-        this.state='attack';
-        player.takeDamage(this.dmg);
-        this.atkCD=this.attackCD;
-      }
-    } else {
-      this.alertBubble=Math.max(0,this.alertBubble-dt);
-      this.state='patrol';
-      if(this.patrol)this._patrol(dt);else this._wander(dt,1);
-    }
-    // Anti-stuck
-    this.stuckTimer+=dt;
-    if(this.stuckTimer>1.5){
-      const moved=U.dist(this.x,this.y,this.lastX,this.lastY);
-      if(moved<5){this.patrolTarget={x:this.x+(-1+Math.random()*2)*200,y:this.y+(-1+Math.random()*2)*200}}
-      this.stuckTimer=0;this.lastX=this.x;this.lastY=this.y;
-    }
-    // Límites
-    this.x=U.clamp(this.x,20,C.WW*C.TILE-20);
-    this.y=U.clamp(this.y,20,C.WH*C.TILE-20);
-  }
-  _patrol(dt){
-    this.patrolTimer+=dt;
-    const d=U.dist(this.x,this.y,this.patrolTarget.x,this.patrolTarget.y);
-    if(d<20||this.patrolTimer>8){
-      const angle=Math.random()*Math.PI*2;
-      const dist=80+Math.random()*180;
-      this.patrolTarget={x:this.x+Math.cos(angle)*dist,y:this.y+Math.sin(angle)*dist};
-      this.patrolTarget.x=U.clamp(this.patrolTarget.x,30,C.WW*C.TILE-30);
-      this.patrolTarget.y=U.clamp(this.patrolTarget.y,30,C.WH*C.TILE-30);
-      this.patrolTimer=0;
-    }
-    const a=Math.atan2(this.patrolTarget.y-this.y,this.patrolTarget.x-this.x);
-    this.x+=Math.cos(a)*(this.speed*.55)*dt;
-    this.y+=Math.sin(a)*(this.speed*.55)*dt;
-  }
-  _wander(dt,spd){
-    this.fT+=dt*.5;
-    this.x+=Math.cos(this.fT)*(this.speed*.15*spd)*dt;
-    this.y+=Math.sin(this.fT*.7)*(this.speed*.15*spd)*dt;
-  }
-  takeDamage(dmg){this.hp-=dmg;if(this.hp<=0)this.isDead=true}
-  static create(type,x,y){return new Enemy(type,x,y)}
-}
-
-// ─── CICLO DÍA/NOCHE ─────────────────────────────────────
-class DayNight{
-  constructor(){this.day=1;this.t=.15;this.speed=1/C.DAY_DUR}
-  update(dt){this.t+=this.speed*dt;if(this.t>=1){this.t-=1;this.day++;return true}return false}
-  get isNight(){return this.t>=C.NIGHT_START&&this.t<C.DAWN}
-  get isDawn(){return this.t>=C.DAWN||this.t<.2}
-  get brightness(){
-    const t=this.t;
-    if(t<.2)return U.lerp(.15,1,t/.2);
-    if(t<C.NIGHT_START)return 1;
-    if(t<C.NIGHT_START+.08)return U.lerp(1,.04,(t-C.NIGHT_START)/.08);
-    if(t<C.DAWN)return .04;
-    return U.lerp(.04,.25,(t-C.DAWN)/(1-C.DAWN));
-  }
-  get skyColor(){
-    const b=this.brightness;
-    if(this.t<.2||this.t>C.DAWN)return`rgb(${Math.floor(b*38)},${Math.floor(b*18)},${Math.floor(b*5)})`;
-    if(this.t<C.NIGHT_START)return`rgb(${Math.floor(b*14+4)},${Math.floor(b*9+2)},${Math.floor(b*3)})`;
-    return'rgb(1,0,4)';
-  }
-  get timeLabel(){
-    const t=this.t;
-    if(t<.15)return'Madrugada';if(t<.25)return'Amanecer';
-    if(t<.58)return'Día';if(t<C.NIGHT_START)return'Atardecer';
-    if(t<C.DAWN)return'Noche';return'Madrugada';
-  }
-  serialize(){return{day:this.day,t:this.t}}
-  static deserialize(d){const dn=new DayNight();dn.day=d.day;dn.t=d.t;return dn}
-}
-
-// ─── GESTOR DE ENEMIGOS ──────────────────────────────────
-class EnemyManager{
-  constructor(){this.enemies=[];this._st=0;this._si=25}
-  update(dt,player,constructions,dayNight,world){
-    this._st+=dt;
-    if(dayNight.isNight&&this._st>=this._si&&this.enemies.filter(e=>!e.isDead).length<C.MAX_ENEMIES){
-      this._st=0;this._si=Math.max(7,25-dayNight.day*1.8);
-      this._spawn(player,dayNight.day,world);
-    }
-    for(const e of this.enemies)e.update(dt,player,constructions,dayNight);
-    this.enemies=this.enemies.filter(e=>!e.isDead||e.deathAnim<1);
-  }
-  _spawn(player,day,world){
-    const count=1+Math.floor(Math.random()*(day<3?2:3));
-    for(let i=0;i<count;i++){
-      const a=Math.random()*Math.PI*2;
-      const d=C.SPAWN_DIST+Math.random()*120;
-      const ex=U.clamp(player.x+Math.cos(a)*d,20,world.W-20);
-      const ey=U.clamp(player.y+Math.sin(a)*d,20,world.H-20);
-      let type='zombie';
-      const r=Math.random();
-      if(day>=3&&r<.2)type='zombie_fast';
-      if(day>=6&&r<.15)type='zombie_big';
-      if(day>=4&&r<.1)type='shadow';
-      if(day>=7&&r<.12)type='wolf';
-      if(day>=14&&r<.08)type='beast';
-      this.enemies.push(Enemy.create(type,ex,ey));
-    }
-  }
-  clearAll(){this.enemies=[]}
-  getLiving(){return this.enemies.filter(e=>!e.isDead)}
-}
-
-// ─── RENDERIZADOR ─────────────────────────────────────────
-class Renderer{
-  constructor(){
-    this.cw=document.getElementById('c-world');
-    this.cp=document.getElementById('c-particles');
-    this.cWe=document.getElementById('c-weather');
-    this.cl=document.getElementById('c-light');
-    this.ctxW=this.cw.getContext('2d',{alpha:false});
-    this.ctxP=this.cp.getContext('2d');
-    this.ctxWe=this.cWe.getContext('2d');
-    this.ctxL=this.cl.getContext('2d');
-    this.W=0;this.H=0;this.camX=0;this.camY=0;
-    this.resize();
-  }
-  resize(){
-    this.W=window.innerWidth;this.H=window.innerHeight;
-    [this.cw,this.cp,this.cWe,this.cl].forEach(c=>{c.width=this.W;c.height=this.H});
-  }
-  setCamera(px,py,wW,wH){
-    this.camX=U.clamp(px-this.W/2,0,wW-this.W);
-    this.camY=U.clamp(py-this.H/2,0,wH-this.H);
-  }
-  toS(wx,wy){return{x:wx-this.camX,y:wy-this.camY}}
-  inV(wx,wy,m=70){return wx>=this.camX-m&&wx<=this.camX+this.W+m&&wy>=this.camY-m&&wy<=this.camY+this.H+m}
-
-  render(game){
-    const{world,player,constructions,em,dn,weather,particles}=game;
-    const b=dn.brightness;
-    const{ctxW:ctx,W,H,camX,camY}=this;
-
-    // Fondo
-    ctx.fillStyle=dn.skyColor;ctx.fillRect(0,0,W,H);
-    this._drawTerrain(world,b,dn);
-    this._drawFog(world);
-    this._drawObjects(world,b,dn);
-    for(const c of constructions)if(this.inV(c.x,c.y))this._drawConstruction(c,b,dn);
-    for(const e of em.enemies)if(this.inV(e.x,e.y))this._drawEnemy(e,b,dn);
-    this._drawPlayer(player,b,game.inventory);
-
-    // Partículas
-    const ctxP=this.ctxP;
-    ctxP.clearRect(0,0,W,H);
-    particles.draw(ctxP,camX,camY);
-
-    // Clima
-    weather.draw(this.ctxWe,W,H,camX,camY);
-
-    // Luz
-    this._drawLight(player,constructions,dn,weather);
-  }
-
-  _drawTerrain(world,bright,dn){
-    const{ctxW:ctx,W,H,camX,camY}=this;
-    // Suelo base con variación
-    const isNight=dn.isNight;
-    const gr=isNight?8:Math.floor(bright*52+4);
-    const gb=isNight?10:Math.floor(bright*28+3);
-    ctx.fillStyle=`rgb(${Math.floor(gr*.25)},${gr},${Math.floor(gb*.4)})`;
-    ctx.fillRect(0,0,W,H);
-    // Hierba textura — parches
-    ctx.save();
-    const seed=42;
-    for(let gx=0;gx<W;gx+=48){
-      for(let gy=0;gy<H;gy+=48){
-        const wx=gx+camX,wy=gy+camY;
-        const tx=Math.floor(wx/C.TILE),ty=Math.floor(wy/C.TILE);
-        if(!world.isTileExplored(tx,ty))continue;
-        const h=(Math.sin(wx*.03)*Math.cos(wy*.04)+1)*.5;
-        ctx.fillStyle=`rgba(${Math.floor(bright*20*h)},${Math.floor(bright*35*h+5)},${Math.floor(bright*8*h)},0.3)`;
-        ctx.beginPath();ctx.arc(gx+Math.sin(wx*.1)*8,gy+Math.cos(wy*.1)*8,18,0,Math.PI*2);ctx.fill();
-      }
-    }
-    ctx.restore();
-    // Lagos
-    for(const o of world.objects){
-      if(o.type!=='lake')continue;
-      if(!this.inV(o.x,o.y,Math.max(o.w||80,o.h||60)))continue;
-      const s=this.toS(o.x,o.y);
-      const lw=(o.w||80)/2,lh=(o.h||60)/2;
-      ctx.save();
-      // Agua azul con gradiente
-      const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,Math.max(lw,lh));
-      g.addColorStop(0,`rgba(${Math.floor(bright*40+10)},${Math.floor(bright*110+20)},${Math.floor(bright*200+30)},0.9)`);
-      g.addColorStop(1,`rgba(${Math.floor(bright*15+5)},${Math.floor(bright*55+10)},${Math.floor(bright*140+15)},0.85)`);
-      ctx.fillStyle=g;
-      ctx.beginPath();ctx.ellipse(s.x,s.y,lw,lh,0,0,Math.PI*2);ctx.fill();
-      // Reflejo de luz
-      if(bright>.4){
-        ctx.fillStyle=`rgba(180,220,255,${bright*.08+.02})`;
-        ctx.beginPath();ctx.ellipse(s.x-lw*.3,s.y-lh*.25,lw*.35,lh*.2,-.2,0,Math.PI*2);ctx.fill();
-        // Animación ola
-        const wave=Math.sin(Date.now()*.001+o.x*.005)*.15;
-        ctx.strokeStyle=`rgba(120,180,255,${bright*.12+wave*.05})`;
-        ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(s.x,s.y,lw*.75,lh*.6,0,0,Math.PI*2);ctx.stroke();
-      }
-      ctx.restore();
-    }
-  }
-
-  _drawFog(world){
-    const{ctxW:ctx,W,H,camX,camY}=this;
-    const ts=C.TILE;
-    const tx1=Math.max(0,Math.floor(camX/ts)),tx2=Math.min(C.WW-1,Math.ceil((camX+W)/ts));
-    const ty1=Math.max(0,Math.floor(camY/ts)),ty2=Math.min(C.WH-1,Math.ceil((camY+H)/ts));
-    ctx.fillStyle='rgba(0,0,0,0.88)';
-    for(let ty=ty1;ty<=ty2;ty++)for(let tx=tx1;tx<=tx2;tx++){
-      if(!world.isTileExplored(tx,ty))ctx.fillRect(tx*ts-camX,ty*ts-camY,ts,ts);
-    }
-  }
-
-  _drawObjects(world,bright,dn){
-    const{ctxW:ctx,camX,camY,W,H}=this;
-    const vx1=camX-70,vx2=camX+W+70,vy1=camY-70,vy2=camY+H+70;
-    const vis=world.getInRect(vx1,vy1,vx2,vy2).filter(o=>o.type!=='lake');
-    vis.sort((a,b)=>a.y-b.y);
-    for(const o of vis){
-      const tx=Math.floor(o.x/C.TILE),ty=Math.floor(o.y/C.TILE);
-      if(!world.isTileExplored(tx,ty))continue;
-      const s=this.toS(o.x,o.y);
-      switch(o.type){
-        case'tree':case'giant_tree':{
-          const r=o.r||12,big=o.type==='giant_tree';
-          // Sombra
-          ctx.save();
-          ctx.fillStyle=`rgba(0,0,0,${bright*.28})`;
-          ctx.beginPath();ctx.ellipse(s.x+r*.5,s.y+r*.6,r*.95,r*.35,0,0,Math.PI*2);ctx.fill();
-          // Tronco
-          ctx.fillStyle=U.rgba(Math.floor(55+bright*30),Math.floor(38+bright*18),Math.floor(18+bright*10));
-          ctx.beginPath();ctx.ellipse(s.x,s.y+r*.35,r*.22,r*.4,0,0,Math.PI*2);ctx.fill();
-          // Copa exterior (oscura)
-          ctx.fillStyle=o.color;
-          ctx.beginPath();ctx.arc(s.x,s.y-r*.08,r,0,Math.PI*2);ctx.fill();
-          // Copa interior (clara)
-          ctx.fillStyle=o.top;
-          ctx.beginPath();ctx.arc(s.x-r*.2,s.y-r*.3,r*.55,0,Math.PI*2);ctx.fill();
-          // Highlight brillante
-          ctx.fillStyle=`rgba(200,255,180,${bright*.08})`;
-          ctx.beginPath();ctx.arc(s.x-r*.25,s.y-r*.38,r*.22,0,Math.PI*2);ctx.fill();
-          if(big){
-            ctx.strokeStyle=`rgba(200,175,40,${bright*.45+.15})`;ctx.lineWidth=2.5;
-            ctx.beginPath();ctx.arc(s.x,s.y-r*.08,r+3,0,Math.PI*2);ctx.stroke();
-          }
-          // HP bar si dañado
-          if(o.hp<o.maxHp){
-            const bw=r*2,pct=o.hp/o.maxHp;
-            ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(s.x-bw/2,s.y-r-14,bw,4);
-            ctx.fillStyle=`rgb(${Math.floor((1-pct)*220)},${Math.floor(pct*180)},20)`;
-            ctx.fillRect(s.x-bw/2,s.y-r-14,bw*pct,4);
-          }
-          ctx.restore();break;
-        }
-        case'rock':{
-          const r=o.r||8;
-          ctx.save();
-          ctx.fillStyle=`rgba(0,0,0,${bright*.22})`;
-          ctx.beginPath();ctx.ellipse(s.x+r*.35,s.y+r*.55,r*.9,r*.28,0,0,Math.PI*2);ctx.fill();
-          ctx.fillStyle=o.color;
-          ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
-          ctx.fillStyle=`rgba(255,255,255,${bright*.09})`;
-          ctx.beginPath();ctx.arc(s.x-r*.22,s.y-r*.28,r*.42,0,Math.PI*2);ctx.fill();
-          ctx.strokeStyle=`rgba(0,0,0,.25)`;ctx.lineWidth=1;
-          ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.stroke();
-          ctx.restore();break;
-        }
-        case'ore':{
-          const r=o.r||8;
-          ctx.save();
-          ctx.fillStyle=`rgba(70,60,90,.9)`;
-          ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
-          // Venas metálicas
-          ctx.strokeStyle=`rgba(180,160,220,${bright*.5+.2})`;ctx.lineWidth=2;
-          ctx.beginPath();ctx.moveTo(s.x-r*.4,s.y);ctx.lineTo(s.x+r*.3,s.y-.r*.3);ctx.stroke();
-          ctx.beginPath();ctx.moveTo(s.x,s.y-r*.35);ctx.lineTo(s.x+r*.2,s.y+r*.4);ctx.stroke();
-          ctx.fillStyle=`rgba(200,180,240,${bright*.3+.1})`;
-          ctx.beginPath();ctx.arc(s.x-r*.1,s.y-r*.1,r*.25,0,Math.PI*2);ctx.fill();
-          ctx.restore();break;
-        }
-        case'bush':{
-          const r=o.r||8;
-          ctx.save();
-          ctx.fillStyle=o.color;
-          ctx.beginPath();ctx.arc(s.x-r*.42,s.y+r*.2,r*.65,0,Math.PI*2);ctx.fill();
-          ctx.beginPath();ctx.arc(s.x+r*.42,s.y+r*.12,r*.65,0,Math.PI*2);ctx.fill();
-          ctx.beginPath();ctx.arc(s.x,s.y-r*.08,r*.72,0,Math.PI*2);ctx.fill();
-          // Bayas
-          ctx.fillStyle=`rgba(200,80,80,${bright*.8+.15})`;
-          ctx.beginPath();ctx.arc(s.x+r*.2,s.y-r*.2,2.5,0,Math.PI*2);ctx.fill();
-          ctx.beginPath();ctx.arc(s.x-r*.25,s.y+r*.1,2,0,Math.PI*2);ctx.fill();
-          ctx.restore();break;
-        }
-        case'ruin':{
-          const r=o.r||18;
-          ctx.save();
-          ctx.fillStyle=o.color;
-          ctx.beginPath();
-          for(let i=0;i<8;i++){
-            const a=(i/8)*Math.PI*2,j=r*(.55+.45*Math.sin(i*2.5));
-            const px=s.x+Math.cos(a)*j,py=s.y+Math.sin(a)*j*.52;
-            i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
-          }
-          ctx.closePath();ctx.fill();
-          // Grietas
-          ctx.strokeStyle=`rgba(0,0,0,${bright*.35+.15})`;ctx.lineWidth=1;
-          ctx.beginPath();ctx.moveTo(s.x-r*.3,s.y-r*.15);ctx.lineTo(s.x+r*.2,s.y+r*.1);ctx.stroke();
-          if(!o.data.looted){ctx.font='13px serif';ctx.textAlign='center';ctx.fillStyle=`rgba(255,225,80,${bright*.65+.2})`;ctx.fillText('?',s.x,s.y+4);}
-          ctx.restore();break;
-        }
-        case'chest':{
-          if(o.data.opened)break;
-          ctx.save();
-          ctx.fillStyle=U.rgba(150,105,32);
-          ctx.beginPath();ctx.roundRect(s.x-10,s.y-7,20,13,3);ctx.fill();
-          ctx.fillStyle=U.rgba(190,140,55);
-          ctx.beginPath();ctx.roundRect(s.x-10,s.y-11,20,9,3);ctx.fill();
-          // Candado
-          ctx.fillStyle=`rgba(255,210,70,${bright*.75+.2})`;
-          ctx.beginPath();ctx.arc(s.x,s.y-4,3,0,Math.PI*2);ctx.fill();
-          // Brillito
-          ctx.fillStyle=`rgba(255,240,150,${bright*.3+.05})`;
-          ctx.beginPath();ctx.arc(s.x-5,s.y-10,2,0,Math.PI*2);ctx.fill();
-          ctx.restore();break;
-        }
-        case'abandoned_camp':{
-          const r=o.r||18;
-          ctx.save();
-          ctx.fillStyle=`rgba(78,52,18,.72)`;
-          ctx.beginPath();ctx.ellipse(s.x,s.y,r,r*.62,0,0,Math.PI*2);ctx.fill();
-          ctx.fillStyle=`rgba(55,45,38,.9)`;
-          ctx.beginPath();ctx.arc(s.x,s.y-2,6,0,Math.PI*2);ctx.fill();
-          if(!o.data.looted){ctx.font='11px serif';ctx.textAlign='center';ctx.fillStyle=`rgba(255,190,70,${bright*.75+.15})`;ctx.fillText('!',s.x,s.y+4);}
-          ctx.restore();break;
-        }
-      }
-    }
-  }
-
-  _drawConstruction(c,bright,dn){
-    const{ctxW:ctx}=this;
-    const s=this.toS(c.x,c.y);
-    if(c.type==='campfire'){
-      const alive=c.isAlive;
-      const fl=alive?Math.sin(c.fA)*.18:0;
-      // Piedras
-      ctx.fillStyle=`rgba(75,65,55,.9)`;
-      for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;ctx.beginPath();ctx.arc(s.x+Math.cos(a)*10,s.y+Math.sin(a)*5,4,0,Math.PI*2);ctx.fill()}
-      if(alive){
-        const inten=Math.min(1,c.wood/c.maxWood);
-        const fh=15+fl*7+inten*9;
-        // Brillo suelo
-        const gg=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,c.r*2.5);
-        gg.addColorStop(0,`rgba(255,160,30,${inten*.25})`);gg.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle=gg;ctx.beginPath();ctx.arc(s.x,s.y,c.r*2.5,0,Math.PI*2);ctx.fill();
-        // Leños
-        ctx.fillStyle=`rgba(80,45,15,.9)`;
-        ctx.beginPath();ctx.roundRect(s.x-8,s.y-2,16,5,2);ctx.fill();
-        ctx.beginPath();ctx.roundRect(s.x-6,s.y-2,5,16,2);ctx.save();ctx.translate(s.x,s.y);ctx.rotate(.4);ctx.fill();ctx.restore();
-        // Llamas exteriores
-        ctx.save();
-        ctx.fillStyle=`rgba(255,${90+Math.floor(inten*80)},0,0.68)`;
-        ctx.beginPath();ctx.ellipse(s.x+fl*3,s.y-fh*.42,9+fl*2.5,fh*.52,fl*.1,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=`rgba(255,${175+Math.floor(fl*35)},25,0.82)`;
-        ctx.beginPath();ctx.ellipse(s.x-fl*2,s.y-fh*.52,6,fh*.4,-.fl*.1,0,Math.PI*2);ctx.fill();
-        // Núcleo
-        ctx.fillStyle=`rgba(255,255,165,0.92)`;
-        ctx.beginPath();ctx.arc(s.x,s.y-3,3+fl,0,Math.PI*2);ctx.fill();
-        ctx.restore();
-        // Chispas (renderizadas como partículas en ctx directo)
-        if(Math.random()<.15){
-          const sx2=s.x+(-1+Math.random()*2)*6,sy2=s.y-fh*.5;
-          ctx.fillStyle=`rgba(255,${200+Math.floor(Math.random()*55)},0,${Math.random()*.9+.1})`;
-          ctx.beginPath();ctx.arc(sx2,sy2,1.2,0,Math.PI*2);ctx.fill();
-        }
-        // Nivel
-        ctx.fillStyle=`rgba(255,195,70,${bright*.6+.3})`;
-        ctx.font='8px monospace';ctx.textAlign='center';
-        ctx.fillText(`Nv${c.level} [${Math.floor(c.wood)}/${c.maxWood}🪵]`,s.x,s.y-fh-6);
-      } else {
-        ctx.fillStyle='rgba(70,70,70,.6)';ctx.beginPath();ctx.arc(s.x,s.y-3,5,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=`rgba(255,90,70,.85)`;ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('¡sin leña!',s.x,s.y-17);
-      }
-    } else if(c.type==='chest_built'){
-      ctx.save();ctx.fillStyle='rgba(135,95,35,.9)';ctx.beginPath();ctx.roundRect(s.x-12,s.y-8,24,18,3);ctx.fill();
-      ctx.fillStyle='rgba(175,135,55,1)';ctx.beginPath();ctx.roundRect(s.x-12,s.y-12,24,10,3);ctx.fill();
-      ctx.fillStyle=`rgba(255,215,70,.9)`;ctx.beginPath();ctx.arc(s.x,s.y-6,3,0,Math.PI*2);ctx.fill();
-      ctx.restore();
-    } else if(c.type==='tower'){
-      ctx.save();
-      ctx.fillStyle='rgba(88,72,52,.9)';ctx.beginPath();ctx.roundRect(s.x-10,s.y-32,20,32,2);ctx.fill();
-      ctx.fillStyle='rgba(108,88,62,.9)';ctx.beginPath();ctx.roundRect(s.x-14,s.y-38,28,10,2);ctx.fill();
-      // Almenas
-      for(let i=0;i<3;i++){ctx.fillStyle='rgba(100,80,58,.9)';ctx.beginPath();ctx.rect(s.x-11+i*11,s.y-44,8,8);ctx.fill()}
-      ctx.restore();
-    } else if(c.type==='shelter'){
-      ctx.save();
-      ctx.fillStyle='rgba(95,75,48,.88)';ctx.beginPath();ctx.roundRect(s.x-24,s.y-10,48,24,4);ctx.fill();
-      ctx.fillStyle='rgba(78,52,28,.92)';
-      ctx.beginPath();ctx.moveTo(s.x-28,s.y-10);ctx.lineTo(s.x,s.y-30);ctx.lineTo(s.x+28,s.y-10);ctx.closePath();ctx.fill();
-      // Puerta
-      ctx.fillStyle='rgba(55,35,15,.8)';ctx.beginPath();ctx.roundRect(s.x-5,s.y+2,10,12,2);ctx.fill();
-      ctx.restore();
-    } else if(c.type==='wall'){
-      ctx.save();
-      ctx.fillStyle='rgba(90,80,70,.95)';
-      ctx.beginPath();ctx.roundRect(s.x-12,s.y-12,24,24,3);ctx.fill();
-      ctx.strokeStyle='rgba(60,50,40,.6)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(s.x-12,s.y);ctx.lineTo(s.x+12,s.y);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(s.x,s.y-12);ctx.lineTo(s.x,s.y+12);ctx.stroke();
-      ctx.restore();
-    } else if(c.type==='trap'){
-      ctx.save();
-      ctx.fillStyle='rgba(80,60,20,.85)';
-      ctx.beginPath();
-      for(let i=0;i<5;i++){const a=(i/5)*Math.PI*2;ctx.lineTo(s.x+Math.cos(a)*12,s.y+Math.sin(a)*12)}
-      ctx.closePath();ctx.fill();
-      ctx.strokeStyle='rgba(200,150,50,.7)';ctx.lineWidth=2;
-      ctx.beginPath();ctx.arc(s.x,s.y,8,0,Math.PI*2);ctx.stroke();
-      ctx.restore();
-    } else if(c.type==='torch_big'){
-      ctx.save();
-      ctx.fillStyle='rgba(75,55,30,.9)';ctx.beginPath();ctx.roundRect(s.x-3,s.y-20,6,20,2);ctx.fill();
-      const fl2=Math.sin(c.fA*3)*.15;
-      ctx.fillStyle=`rgba(255,150,30,.8)`;ctx.beginPath();ctx.ellipse(s.x,s.y-24,4+fl2*3,8,fl2*.2,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=`rgba(255,230,100,.9)`;ctx.beginPath();ctx.arc(s.x,s.y-23,2,0,Math.PI*2);ctx.fill();
-      ctx.restore();
-    }
-  }
-
-  _drawEnemy(e,bright,dn){
-    const{ctxW:ctx}=this;
-    const s=this.toS(e.x,e.y);
-    const fl=.7+Math.sin(e.fT)*.3;
-    if(e.isDead){
-      ctx.save();ctx.globalAlpha=Math.max(0,1-e.deathAnim);
-      ctx.fillStyle=`rgba(30,0,0,${.7*(1-e.deathAnim)})`;
-      ctx.beginPath();ctx.ellipse(s.x,s.y+2,e.r*1.3,e.r*.4,0,0,Math.PI*2);ctx.fill();
-      ctx.restore();return;
-    }
-    ctx.save();ctx.globalAlpha=fl;
-    // Sombra
-    ctx.fillStyle=`rgba(0,0,0,${bright*.25})`;
-    ctx.beginPath();ctx.ellipse(s.x+2,s.y+e.r*.8,e.r*.9,e.r*.3,0,0,Math.PI*2);ctx.fill();
-    switch(e.type){
-      case'zombie':case'zombie_fast':case'zombie_big':{
-        const isBig=e.type==='zombie_big';
-        const scl=isBig?1.35:e.type==='zombie_fast'?.85:1;
-        const r=e.r;
-        ctx.globalAlpha=fl;
-        // Cuerpo
-        ctx.fillStyle=e.color;
-        ctx.beginPath();ctx.ellipse(s.x,s.y+2,r*.7*scl,r*scl,0,0,Math.PI*2);ctx.fill();
-        // Ropa desgarrada
-        ctx.fillStyle=e.darkColor;
-        ctx.beginPath();ctx.ellipse(s.x,s.y+3,r*.65*scl,r*.6*scl,0,0,Math.PI*2);ctx.fill();
-        // Cabeza
-        ctx.fillStyle='#4a6a3a';
-        ctx.beginPath();ctx.arc(s.x+Math.sin(e.fT*.5)*(isBig?3:1.5),s.y-r*.7*scl,r*.58*scl,0,Math.PI*2);ctx.fill();
-        // Cabello en desorden
-        ctx.fillStyle='#2a3a20';
-        ctx.beginPath();ctx.arc(s.x-r*.2*scl,s.y-r*scl,r*.3*scl,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(s.x+r*.25*scl,s.y-r*.95*scl,r*.25*scl,0,Math.PI*2);ctx.fill();
-        // Ojos brillantes
-        ctx.fillStyle=e.eyeColor;
-        ctx.beginPath();ctx.arc(s.x-r*.22*scl,s.y-r*.7*scl,r*.14*scl,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(s.x+r*.22*scl,s.y-r*.7*scl,r*.14*scl,0,Math.PI*2);ctx.fill();
-        // Glow ojos
-        ctx.globalAlpha=fl*.4;
-        const eg=ctx.createRadialGradient(s.x,s.y-r*.7*scl,0,s.x,s.y-r*.7*scl,r*.35*scl);
-        eg.addColorStop(0,e.eyeColor.replace(')',',0.3)').replace('rgb','rgba'));
-        eg.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle=eg;ctx.beginPath();ctx.arc(s.x,s.y-r*.7*scl,r*.35*scl,0,Math.PI*2);ctx.fill();
-        // Brazos extendidos
-        ctx.globalAlpha=fl;
-        ctx.strokeStyle=e.color;ctx.lineWidth=r*.45*scl;ctx.lineCap='round';
-        const armSwing=Math.sin(e.fT*2)*(isBig?.4:.25);
-        ctx.beginPath();ctx.moveTo(s.x-r*.6*scl,s.y-r*.1*scl);ctx.lineTo(s.x-r*1.4*scl,s.y-r*(armSwing+.1)*scl);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(s.x+r*.6*scl,s.y-r*.1*scl);ctx.lineTo(s.x+r*1.4*scl,s.y-r*(-armSwing+.1)*scl);ctx.stroke();
-        // Alerta bubble
-        if(e.alertBubble>0&&e.state==='chase'){
-          ctx.globalAlpha=e.alertBubble;
-          ctx.font=`${Math.floor(8+e.alertBubble*4)}px serif`;ctx.textAlign='center';
-          ctx.fillStyle='#ffcc00';ctx.fillText('!',s.x,s.y-r*scl-10);
-        }
-        break;
-      }
-      case'shadow':{
-        ctx.globalAlpha=fl*.85;
-        ctx.fillStyle=`rgba(20,0,45,0.85)`;
-        ctx.beginPath();ctx.ellipse(s.x+Math.sin(e.fT)*.5,s.y,e.r*1.25,e.r*.82,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=`rgba(60,0,100,0.6)`;
-        ctx.beginPath();ctx.arc(s.x,s.y,e.r*.7,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=e.eyeColor;
-        ctx.beginPath();ctx.arc(s.x-4,s.y-2,2.5,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(s.x+4,s.y-2,2.5,0,Math.PI*2);ctx.fill();
-        break;
-      }
-      case'wolf':{
-        ctx.fillStyle=e.color;
-        ctx.beginPath();ctx.ellipse(s.x,s.y,e.r,e.r*.68,0,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(s.x+e.r*.55,s.y-3,e.r*.5,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=e.darkColor;
-        ctx.beginPath();ctx.arc(s.x+e.r*.72,s.y-9,4,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=e.eyeColor;
-        ctx.beginPath();ctx.arc(s.x+e.r*.55+4,s.y-3,2.5,0,Math.PI*2);ctx.fill();
-        // Cola
-        ctx.strokeStyle=e.color;ctx.lineWidth=3;
-        ctx.beginPath();ctx.moveTo(s.x-e.r,s.y);ctx.quadraticCurveTo(s.x-e.r*1.6,s.y-8+Math.sin(e.fT)*5,s.x-e.r*1.8,s.y-5);ctx.stroke();
-        break;
-      }
-      case'beast':{
-        ctx.fillStyle=e.color;ctx.beginPath();ctx.arc(s.x,s.y,e.r,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=e.darkColor;ctx.beginPath();ctx.arc(s.x,s.y,e.r*.7,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle=`rgba(140,20,20,.9)`;ctx.lineWidth=3;
-        ctx.beginPath();ctx.moveTo(s.x-6,s.y-e.r);ctx.lineTo(s.x-10,s.y-e.r-12);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(s.x+6,s.y-e.r);ctx.lineTo(s.x+10,s.y-e.r-12);ctx.stroke();
-        ctx.fillStyle=e.eyeColor;
-        ctx.beginPath();ctx.arc(s.x-5,s.y-4,3.5,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(s.x+5,s.y-4,3.5,0,Math.PI*2);ctx.fill();
-        break;
-      }
-    }
-    // HP bar
-    const hp=e.hp/e.maxHp;
-    const bw=e.r*2.8;
-    ctx.globalAlpha=1;
-    ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(s.x-bw/2,s.y-e.r-10,bw,5);
-    ctx.fillStyle=`rgb(${Math.floor((1-hp)*230)},${Math.floor(hp*190)},25)`;
-    ctx.fillRect(s.x-bw/2,s.y-e.r-10,bw*hp,5);
-    // Estado patrol/chase
-    if(e.state==='patrol'&&!e.sleeping){
-      ctx.globalAlpha=.45;
-      ctx.fillStyle='#aaffaa';ctx.font='8px monospace';ctx.textAlign='center';
-      ctx.fillText('...',s.x,s.y-e.r-14);
-    }
-    ctx.restore();
-  }
-
-  _drawPlayer(player,bright,inventory){
-    const{ctxW:ctx}=this;
-    const s=this.toS(player.x,player.y);
-    const r=player.r;
-    const wo=Math.sin(player.walkT)*2.5;
-    ctx.save();
-    // Hurt flash
-    if(player.hurtFlash>0){
-      ctx.fillStyle=`rgba(255,30,30,${player.hurtFlash*2.8})`;
-      ctx.beginPath();ctx.arc(s.x,s.y,r+8,0,Math.PI*2);ctx.fill();
-    }
-    // Sombra
-    ctx.fillStyle=`rgba(0,0,0,${bright*.28})`;
-    ctx.beginPath();ctx.ellipse(s.x+3,s.y+r*.85,r*.75,r*.25,0,0,Math.PI*2);ctx.fill();
-    // Cuerpo
-    ctx.fillStyle='#c09050';
-    ctx.beginPath();ctx.ellipse(s.x,s.y+wo*.3,r*.68,r,0,0,Math.PI*2);ctx.fill();
-    // Capa
-    ctx.fillStyle='#5a3a18';
-    ctx.beginPath();ctx.ellipse(s.x,s.y+1+wo*.3,r*.73,r*.65,0,0,Math.PI*2);ctx.fill();
-    // Cabeza
-    ctx.fillStyle='#d8a870';
-    ctx.beginPath();ctx.arc(s.x,s.y-r*.52,r*.7,0,Math.PI*2);ctx.fill();
-    // Cabello
-    ctx.fillStyle='#4a2a0a';
-    ctx.beginPath();ctx.arc(s.x,s.y-r*.9,r*.45,Math.PI,Math.PI*2);ctx.fill();
-    // Ojos
-    const fm=Math.hypot(player.facing.x,player.facing.y);
-    const fx=fm>.01?player.facing.x/fm:0,fy=fm>.01?player.facing.y/fm:1;
-    ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.arc(s.x+fx*3-fy*2.5,s.y-r*.52+fy*2,2.2,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.arc(s.x+fx*3+fy*2.5,s.y-r*.52+fy*2,2.2,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#222';
-    ctx.beginPath();ctx.arc(s.x+fx*4-fy*2.5,s.y-r*.52+fy*3,1.2,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.arc(s.x+fx*4+fy*2.5,s.y-r*.52+fy*3,1.2,0,Math.PI*2);ctx.fill();
-    // Arma equipada
-    const w=inventory.getEquipped();
-    if(w&&w.id!=='fist'){
-      const atkAng=player.atkSwing>0?-1.2+player.atkSwing*3:0;
-      ctx.save();ctx.translate(s.x+fx*8,s.y+fy*4);ctx.rotate(atkAng+Math.atan2(fy,fx));
-      ctx.font='16px serif';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(w.icon||'⚔️',0,0);
-      ctx.restore();
-    }
-    // Nivel
-    ctx.fillStyle=`rgba(255,200,80,${bright*.6+.35})`;
-    ctx.font='8px monospace';ctx.textAlign='center';
-    ctx.fillText(`Lv${player.level}`,s.x,s.y-r-10);
-    ctx.restore();
-  }
-
-  _drawLight(player,constructions,dn,weather){
-    const{ctxL:ctx,W,H}=this;
-    const bright=dn.brightness;
-    ctx.clearRect(0,0,W,H);
-    if(bright>.92)return;
-    const dark=U.clamp((1-bright)*.98,0,.98);
-    ctx.fillStyle=`rgba(0,0,8,${dark})`;ctx.fillRect(0,0,W,H);
-    ctx.globalCompositeOperation='destination-out';
-    // Luz del jugador
-    const ps=this.toS(player.x,player.y);
-    const equipped=null; // placeholder — torch handled below
-    const plr=75+bright*35;
-    const pg=ctx.createRadialGradient(ps.x,ps.y,0,ps.x,ps.y,plr);
-    pg.addColorStop(0,'rgba(0,0,0,.78)');pg.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=pg;ctx.beginPath();ctx.arc(ps.x,ps.y,plr,0,Math.PI*2);ctx.fill();
-    // Fogatas y faroles
-    for(const c of constructions){
-      const lr=c.lightR||0;if(!lr)continue;
-      if(c.type==='campfire'&&!c.isAlive)continue;
-      const cs=this.toS(c.x,c.y);
-      const flicker=c.type==='campfire'?(0.85+Math.sin((c.fA||0))*.15):1;
-      const cg=ctx.createRadialGradient(cs.x,cs.y,0,cs.x,cs.y,lr*flicker);
-      const inten=c.type==='campfire'?Math.min(1,(c.wood||1)/5):.8;
-      cg.addColorStop(0,`rgba(0,0,0,${.88*inten})`);
-      cg.addColorStop(.5,`rgba(0,0,0,${.42*inten})`);
-      cg.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cs.x,cs.y,lr*flicker,0,Math.PI*2);ctx.fill();
-    }
-    // Fog weather reduce visibility extra
-    if(weather.fogRadius>0){
-      ctx.globalCompositeOperation='source-over';
-      ctx.fillStyle=`rgba(15,20,35,${weather.state==='fog'?.45:.25})`;
-      ctx.fillRect(0,0,W,H);
-      ctx.globalCompositeOperation='destination-out';
-      const fr=Math.max(40,plr-(weather.fogRadius*.7));
-      const pg2=ctx.createRadialGradient(ps.x,ps.y,0,ps.x,ps.y,fr);
-      pg2.addColorStop(0,'rgba(0,0,0,.5)');pg2.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=pg2;ctx.beginPath();ctx.arc(ps.x,ps.y,fr,0,Math.PI*2);ctx.fill();
-    }
-    ctx.globalCompositeOperation='source-over';
-    // Warm tint para noche profunda
-    if(dark>.7){
-      ctx.fillStyle=`rgba(0,0,20,${(dark-.7)*.4})`;ctx.fillRect(0,0,W,H);
-    }
-  }
-
-  renderHUD(player,inventory,dn,weather){
-    const p=v=>Math.round(v*100)+'%';
-    document.getElementById('b-hp').style.width=p(player.hp/player.maxHp);
-    document.getElementById('b-en').style.width=p(player.energy/player.maxEnergy);
-    document.getElementById('b-ht').style.width=p(player.heat/player.maxHeat);
-    document.getElementById('b-xp').style.width=p(player.xp/player.xpNext);
-    document.getElementById('h-day').textContent=`Día ${dn.day}`;
-    document.getElementById('h-time').textContent=dn.timeLabel;
-    document.getElementById('h-weather').textContent=weather.label;
-    const res=inventory.res;
-    document.getElementById('r-wood').textContent=`🪵${res.wood}`;
-    document.getElementById('r-stone').textContent=`🪨${res.stone}`;
-    document.getElementById('r-food').textContent=`🫐${res.food}`;
-    document.getElementById('r-frags').textContent=`💎${res.fragments}`;
-    document.getElementById('r-bone').textContent=`🦴${res.bone}`;
-    document.getElementById('r-metal').textContent=`⚙️${res.metal}`;
-    // Weapon HUD
-    const w=inventory.getEquipped();
-    const ws0=document.getElementById('wslot-0');
-    ws0.querySelector('em').textContent=w?w.icon:'✊';
-    ws0.querySelector('span').textContent=w?w.name:'Puños';
-  }
-}
-
-// ─── JUEGO PRINCIPAL ─────────────────────────────────────
-class Game{
-  constructor(){
-    this.renderer=new Renderer();
-    this.input=new InputManager();
-    this.gamepad=new GamepadManager(this.input);
-    this.saveManager=new SaveManager();
-    this.em=new EnemyManager();
-    this.particles=new ParticleSystem();
-    this.weather=new WeatherSystem();
-    this.world=null;this.player=null;this.dn=null;
-    this.inventory=null;this.constructions=[];
-    this.state='loading';
-    this._lt=0;this._ast=0;this._hudt=0;
-    this._fireSmoke=0;
-    this._bindUI();this._init();
-  }
-
-  async _init(){
-    await this.saveManager.init();
-    for(let i=0;i<=100;i+=5){await new Promise(r=>setTimeout(r,40));document.getElementById('lb-fill').style.width=i+'%'}
-    const has=await this.saveManager.hasSave();
-    this._showScreen('main-menu');
-    if(has)document.getElementById('btn-cont').style.display='';
-    window.addEventListener('resize',()=>this.renderer.resize());
-    requestAnimationFrame(ts=>this._loop(ts));
-  }
-
-  _bindUI(){
-    document.getElementById('btn-new').onclick=()=>this.newGame();
-    document.getElementById('btn-cont').onclick=()=>this.loadGame();
-    document.getElementById('btn-cred').onclick=()=>this._showScreen('credits-screen');
-    document.getElementById('btn-cred-back').onclick=()=>this._showScreen('main-menu');
-    document.getElementById('btn-res').onclick=()=>this.resume();
-    document.getElementById('btn-build-p').onclick=()=>{this.resume();document.getElementById('build-menu').classList.toggle('hidden')};
-    document.getElementById('btn-craft-p').onclick=()=>{this.resume();this._showCraftScreen()};
-    document.getElementById('btn-sq').onclick=async()=>{await this._doSave();this._showScreen('main-menu');this.state='menu'};
-    document.getElementById('btn-inv-close').onclick=()=>{this._showScreen(null);this.state='playing'};
-    document.getElementById('btn-craft-close').onclick=()=>{this._showScreen(null);this.state='playing'};
-    document.getElementById('btn-retry').onclick=()=>this.newGame();
-    document.getElementById('btn-go-menu').onclick=()=>{this._showScreen('main-menu');this.state='menu'};
-    // Build buttons
-    document.getElementById('bb-fire').onclick=()=>this._build('campfire',4,2,0,0);
-    document.getElementById('bb-chest').onclick=()=>this._build('chest_built',3,2,0,0);
-    document.getElementById('bb-tower').onclick=()=>this._build('tower',5,5,0,0);
-    document.getElementById('bb-shelter').onclick=()=>this._build('shelter',8,3,0,0);
-    document.getElementById('bb-wall').onclick=()=>this._build('wall',0,2,0,0);
-    document.getElementById('bb-trap').onclick=()=>this._build('trap',2,1,0,0);
-  }
-
-  _showScreen(id){
-    document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
-    if(id)document.getElementById(id)?.classList.remove('hidden');
-  }
-
-  _build(type,wood,stone,food,frags){
-    const inv=this.inventory;
-    if(!inv.has('wood',wood)||!inv.has('stone',stone)){U.notify('⚠️ Faltan recursos','#ff8040');return}
-    inv.spend('wood',wood);inv.spend('stone',stone);
-    const offset=45+Math.random()*20;
-    const angle=Math.random()*Math.PI*2;
-    const x=this.player.x+Math.cos(angle)*offset;
-    const y=this.player.y+Math.sin(angle)*offset;
-    let obj;
-    if(type==='campfire')obj=new Campfire(x,y);
-    else obj=makeBuilding(type,x,y);
-    this.constructions.push(obj);
-    document.getElementById('build-menu').classList.add('hidden');
-    const names={campfire:'🔥 Fogata',chest_built:'📦 Cofre',tower:'🗼 Torre',shelter:'🏕️ Refugio',wall:'🧱 Muro',trap:'🪤 Trampa'};
-    U.notify(`${names[type]||type} construido`,'#ffcc66');
-  }
-
-  newGame(){
-    const seed=Date.now();
-    this.world=new World(seed);
-    const cx=this.world.W/2,cy=this.world.H/2;
-    this.player=new Player(cx,cy);
-    this.dn=new DayNight();
-    this.inventory=new Inventory();
-    this.inventory.addRes('wood',10);this.inventory.addRes('stone',5);this.inventory.addRes('food',3);
-    this.constructions=[new Campfire(cx+40,cy)];
-    this.em.clearAll();
-    this.particles.p=[];
-    this.weather=new WeatherSystem();
-    this.state='playing';
-    this._showScreen(null);
-    U.notify('⛺ ¡Nuevo campamento — sobrevive la noche!','#ffdd88');
-  }
-
-  async loadGame(){
-    const data=await this.saveManager.load();
-    if(!data){this.newGame();return}
-    try{
-      this.world=World.deserialize(data.world);
-      this.player=Player.deserialize(data.player);
-      this.dn=DayNight.deserialize(data.dn);
-      this.inventory=Inventory.deserialize(data.inv);
-      this.constructions=data.constructions.map(c=>c.type==='campfire'?Campfire.deserialize(c):makeBuilding(c.type,c.x,c.y));
-      this.em.clearAll();
-      this.weather=new WeatherSystem();
-      this.state='playing';this._showScreen(null);
-      U.notify(`📂 Cargado — Día ${this.dn.day}`,'#88ffaa');
-    }catch(e){console.error(e);this.newGame()}
-  }
-
-  async _doSave(){
-    if(!this.world)return;
-    await this.saveManager.save({
-      world:this.world.serialize(),player:this.player.serialize(),
-      dn:this.dn.serialize(),inv:this.inventory.serialize(),
-      constructions:this.constructions.map(c=>c.serialize?c.serialize():{type:c.type,x:c.x,y:c.y}),
-    });
-    U.notify('💾 Guardado','#88ddff');
-  }
-
-  resume(){this.state='playing';this._showScreen(null)}
-
-  _loop(ts){
-    const dt=Math.min((ts-this._lt)/1000,.05);this._lt=ts;
-    this.gamepad.update();
-    if(this.state==='playing')this._update(dt);
-    if(this.state!=='loading'&&this.state!=='menu')this._render();
-    requestAnimationFrame(t=>this._loop(t));
-  }
-
-  _update(dt){
-    const{player,world,dn,inventory,constructions,input,em,particles,weather}=this;
-    if(input.consume('pause')){this.state='paused';this._showScreen('pause-screen');return}
-    if(input.consume('inv')){this.state='inventory';this._showInvScreen();return}
-    if(input.consume('craft')){this.state='craft';this._showCraftScreen();return}
-
-    // Día/noche
-    const newDay=dn.update(dt);
-    if(newDay){em.clearAll();this._dayTransition();U.notify(`☀️ Día ${dn.day} — ¡Sobreviviste!`,'#ffee88')}
-
-    // Clima
-    weather.update(dt,this.renderer.W,this.renderer.H);
-
-    // Construcciones
-    for(const c of constructions){if(c.update)c.update(dt)}
-
-    // Partículas de fogata (humo + chispas)
-    this._fireSmoke+=dt;
-    for(const cf of constructions.filter(c=>c.type==='campfire'&&c.isAlive)){
-      if(this._fireSmoke>.06){
-        particles.emit(cf.x+(Math.random()-.5)*6,cf.y-18,{vx:(Math.random()-.5)*1,vy:-1.5-Math.random(),col:'rgba(100,90,80,0.6)',r:6+Math.random()*8,life:.8+Math.random()*.6,type:'smoke',gravity:-.01});
-        if(Math.random()<.3)particles.emit(cf.x+(Math.random()-.5)*8,cf.y-12,{vx:(Math.random()-.5)*2,vy:-3-Math.random()*2,col:`rgba(255,${180+Math.floor(Math.random()*75)},0,0.9)`,r:2+Math.random()*1.5,life:.35,gravity:.05});
-      }
-    }
-    if(this._fireSmoke>.06)this._fireSmoke=0;
-
-    // Partículas lluvia impact (suelo)
-    if((weather.state==='rain'||weather.state==='storm')&&Math.random()<dt*25){
-      particles.emit(player.x+(-1+Math.random()*2)*200,player.y+(-1+Math.random()*2)*150,
-        {vx:(Math.random()-.5),vy:-1,col:'rgba(180,210,255,0.5)',r:1.5,life:.25,spread:.5,shrink:true});
-    }
-
-    // Jugador
-    player.update(dt,input,world,constructions,dn,weather,inventory);
-
-    // Ataque
-    if(input.consume('attack')||input.act.attack){
-      input.act.attack=false;
-      const hit=player.attack(inventory,em.getLiving(),particles);
-      // Ataques también en objetos cercanos
-      if(!hit)this._handleInteract();
-    }
-    if(input.consume('use'))this._handleInteract();
-
-    // Explorar
-    const fov=dn.isNight?C.FOV_NIGHT:C.FOV;
-    world.explore(player.x,player.y,fov);
-    // Torre amplía visión
-    for(const c of constructions.filter(c=>c.type==='tower'&&U.dist(player.x,player.y,c.x,c.y)<220))
-      world.explore(c.x,c.y,C.FOV*1.6);
-
-    // Trampas
-    for(const c of constructions.filter(c=>c.type==='trap')){
-      for(const e of em.getLiving()){
-        if(U.dist(e.x,e.y,c.x,c.y)<20){e.takeDamage(35);particles.emitBurst(e.x,e.y,5,{col:'#cc2020',r:3,life:.5,spread:4});c.triggered=true;}
-      }
-    }
-
-    // Enemigos
-    em.update(dt,player,constructions,dn,world);
-
-    // Partículas
-    particles.update(dt);
-
-    // Autosave
-    this._ast+=dt*1000;
-    if(this._ast>=C.AUTOSAVE){this._ast=0;this._doSave()}
-
-    // Game over
-    if(player.isDead){
-      this.state='gameover';
-      document.getElementById('go-msg').textContent=`Sucumbiste en el Día ${dn.day}. Los no muertos ganan esta noche.`;
-      this._showScreen('gameover-screen');
-    }
-
-    // HUD
-    this._hudt+=dt;
-    if(this._hudt>=.1){this._hudt=0;this.renderer.renderHUD(player,inventory,dn,weather)}
-  }
-
-  _handleInteract(){
-    const{player,world,inventory,constructions,particles}=this;
-    const REACH=58;
-    const near=world.getNear(player.x,player.y,REACH);
-    let acted=false;
-    const w=inventory.getEquipped();
-    const isAxe=w&&(w.id==='axe'||w.id==='pickaxe');
-
-    for(const o of near){
-      if(acted)break;
-      switch(o.type){
-        case'tree':case'giant_tree':{
-          const dmg=isAxe?3:1;o.hp-=dmg;
-          if(o.hp<=0){
-            inventory.addRes('wood',o.data.wood);
-            if(o.data.fragments)inventory.addRes('fragments',o.data.fragments);
-            U.notify(`🪵 +${o.data.wood} madera`,'#c8a050');
-            if(o.data.fragments)U.notify('💎 +1 fragmento','#80ddff');
-            particles.emitBurst(o.x,o.y,8,{col:'#8B4513',r:3+Math.random()*2,life:.6,spread:4,vy:-2,gravity:.1});
-            world.remove(o);
-          }else U.notify('🪓 Golpe'+(isAxe?' (hacha)':''),'#88aa66');
-          acted=true;break;
-        }
-        case'rock':{
-          const dmg=isAxe&&w.id==='pickaxe'?3:1;o.hp-=dmg;
-          if(o.hp<=0){
-            inventory.addRes('stone',o.data.stone);
-            if(o.data.metal)inventory.addRes('metal',o.data.metal);
-            U.notify(`🪨 +${o.data.stone} piedra`,'#aaaaaa');
-            if(o.data.metal)U.notify('⚙️ +metal','#c0b0d0');
-            particles.emitBurst(o.x,o.y,6,{col:'#aaa',r:2+Math.random()*2,life:.5,spread:3,vy:-1.5,gravity:.08});
-            world.remove(o);
-          }else U.notify('⛏️ Golpe','#888888');
-          acted=true;break;
-        }
-        case'ore':{
-          o.hp--;
-          if(o.hp<=0){inventory.addRes('metal',o.data.metal);U.notify(`⚙️ +${o.data.metal} metal`,'#c0b0d0');world.remove(o);}
-          else U.notify('⛏️ Mineral','#c0b0d0');
-          acted=true;break;
-        }
-        case'bush':{
-          inventory.addRes('food',o.data.food);
-          if(o.data.bone)inventory.addRes('bone',o.data.bone);
-          if(o.data.fragments)inventory.addRes('fragments',o.data.fragments);
-          U.notify(`🫐 +${o.data.food} comida`,'#88cc88');
-          if(o.data.bone)U.notify('🦴 +hueso','#ddddaa');
-          particles.emitBurst(o.x,o.y,5,{col:'#88cc88',r:2,life:.4,spread:3,vy:-1.5});
-          world.remove(o);acted=true;break;
-        }
-        case'chest':{
-          if(!o.data.opened){
-            o.data.opened=true;
-            const d=o.data;
-            ['wood','stone','food','bone','metal','fragments'].forEach(k=>{if(d[k])inventory.addRes(k,d[k])});
-            U.notify(`📦 Cofre: +${d.wood||0}🪵 +${d.stone||0}🪨 +${d.food||0}🫐${d.fragments?' +💎':''}`,'#ffdd88');
-            particles.emitBurst(o.x,o.y,10,{col:'#ffcc44',r:3,life:.7,spread:5,vy:-2});
-          }
-          acted=true;break;
-        }
-        case'ruin':case'abandoned_camp':{
-          if(!o.data.looted){
-            o.data.looted=true;
-            const d=o.data;
-            ['wood','stone','food','bone','metal','fragments'].forEach(k=>{if(d[k])inventory.addRes(k,d[k])});
-            U.notify(`🔍 +${d.wood||0}🪵 +${d.stone||0}🪨 +${d.bone||0}🦴${d.fragments?' +💎':''}`,'#ffcc66');
-          }
-          acted=true;break;
-        }
-      }
-    }
-
-    // Fogata
-    if(!acted)for(const cf of constructions.filter(c=>c.type==='campfire')){
-      const d=U.dist(player.x,player.y,cf.x,cf.y);
-      if(d<REACH+20){
-        if(inventory.has('wood',3)){inventory.spend('wood',3);cf.addWood(8);U.notify('🔥 +8 leña','#ff9944');acted=true}
-        else if(!acted&&cf.level<5&&inventory.has('wood',8+cf.level*3)){
-          inventory.spend('wood',8+cf.level*3);cf.upgrade();U.notify(`⬆️ Fogata Nv${cf.level}`,'#ffaa44');acted=true;
-        }
-        if(acted)break;
-      }
-    }
-
-    // Comer/curar consumibles
-    if(!acted){
-      const medkit=inventory.consumables.find(c=>c.id==='medkit'||c.id==='bandage');
-      if(medkit&&player.hp<player.maxHp*.9){
-        const c=inventory.useConsumable(medkit.id);
-        player.heal(c.heal||20);U.notify(`${c.icon} +${c.heal} vida`,'#88ff88');acted=true;
-      }
-    }
-    if(!acted&&inventory.has('food',1)&&(player.hp<player.maxHp*.8||player.energy<25)){
-      inventory.spend('food',1);player.heal(18);player.energy=Math.min(player.maxEnergy,player.energy+28);
-      U.notify('🫐 Comido (+18❤ +28⚡)','#88ff88');acted=true;
-    }
-    if(!acted)U.notify('Nada cerca','#606060');
-  }
-
-  _showInvScreen(){
-    this._showScreen('inv-screen');
-    const rDiv=document.getElementById('inv-resources');rDiv.innerHTML='';
-    const wDiv=document.getElementById('inv-weapons');wDiv.innerHTML='';
-    const res=this.inventory.res;
-    const items=[['🪵','Madera',res.wood],['🪨','Piedra',res.stone],['🫐','Comida',res.food],
-      ['💎','Frags',res.fragments],['🦴','Huesos',res.bone],['⚙️','Metal',res.metal]];
-    for(const[icon,name,count]of items){
-      const d=document.createElement('div');d.className='res-card';
-      d.innerHTML=`<em>${icon}</em><div><div>${name}</div><div style="font-size:14px;font-weight:bold">${count}</div></div>`;
-      rDiv.appendChild(d);
-    }
-    // Armas
-    const allW=[{...WEAPONS_DEFAULT.fist},...this.inventory.weapons];
-    const eq=this.inventory.equipped;
-    for(const w of allW){
-      const d=document.createElement('div');d.className='inv-weapon'+(w.id===eq?' equipped':'');
-      d.innerHTML=`<em>${w.icon}</em><div><div>${w.name}</div><div style="font-size:9px;color:#a08050">⚔${w.dmg} 🎯${w.range}</div></div>`;
-      d.onclick=()=>{this.inventory.equipWeapon(w.id);this._showInvScreen()};
-      wDiv.appendChild(d);
-    }
-    // Consumibles
-    if(this.inventory.consumables.length){
-      const title=document.createElement('div');title.style.cssText='font-size:10px;color:#ffaa55;margin-top:10px;width:100%;text-align:left;padding-left:4px';title.textContent='Consumibles:';wDiv.appendChild(title);
-      for(const c of this.inventory.consumables){
-        const d=document.createElement('div');d.className='inv-weapon';
-        d.innerHTML=`<em>${c.icon}</em><div><div>${c.name}</div><div style="font-size:9px;color:#a08050">+${c.heal||0}❤</div></div>`;
-        d.onclick=()=>{const used=this.inventory.useConsumable(c.id);if(used){this.player.heal(used.heal||0);U.notify(`${used.icon} Usada`,'#88ff88');this._showInvScreen()}};
-        wDiv.appendChild(d);
-      }
-    }
-    // Armadura
-    if(this.inventory.armor){
-      const a=this.inventory.armor;
-      const d=document.createElement('div');d.className='inv-weapon equipped';
-      d.innerHTML=`<em>${a.icon}</em><div><div>${a.name}</div><div style="font-size:9px;color:#a08050">🛡${a.defense}</div></div>`;
-      wDiv.appendChild(d);
-    }
-  }
-
-  _showCraftScreen(){
-    this.state='craft';this._showScreen('craft-screen');
-    const list=document.getElementById('craft-list');list.innerHTML='';
-    const inv=this.inventory;
-    for(const rec of RECIPES){
-      const canCraft=Object.entries(rec.cost).every(([k,v])=>inv.has(k,v));
-      const d=document.createElement('div');d.className='craft-item';
-      if(!canCraft)d.style.opacity='.5';
-      const costStr=Object.entries(rec.cost).map(([k,v])=>`${v}${k==='wood'?'🪵':k==='stone'?'🪨':k==='food'?'🫐':k==='bone'?'🦴':k==='metal'?'⚙️':'💎'}`).join(' ');
-      d.innerHTML=`<div class="craft-name">${rec.icon} ${rec.name}</div><div class="craft-cost">Coste: ${costStr}</div><div class="craft-desc">${rec.desc}</div>`;
-      if(canCraft)d.onclick=()=>this._doCraft(rec);
-      list.appendChild(d);
-    }
-  }
-
-  _doCraft(rec){
-    if(!this.inventory.spendMap(rec.cost)){U.notify('⚠️ Faltan materiales','#ff8040');return}
-    const r=rec.result;
-    if(r.type==='weapon'){this.inventory.addWeapon(r);this.inventory.equipWeapon(r.id);U.notify(`${r.icon} ${r.name} crafteado y equipado`,'#ffcc44')}
-    else if(r.type==='armor'){this.inventory.setArmor(r);U.notify(`${r.icon} ${r.name} equipado (🛡${r.defense})`,'#aaddff')}
-    else if(r.type==='consumable'){this.inventory.addConsumable(r);U.notify(`${r.icon} ${r.name} creado`,'#88ff88')}
-    else if(r.type==='building'){
-      const offset=45;const angle=Math.random()*Math.PI*2;
-      const bld=makeBuilding(r.id,this.player.x+Math.cos(angle)*offset,this.player.y+Math.sin(angle)*offset);
-      bld.lightR=r.light||0;this.constructions.push(bld);
-      U.notify(`${r.icon} ${r.name} construido`,'#ffcc44');
-    }
-    this._showCraftScreen();
-  }
-
-  _dayTransition(){
-    const el=document.getElementById('day-trans');
-    document.getElementById('dt-text').textContent=`☀️ DÍA ${this.dn.day}`;
-    el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800);
-  }
-
-  _render(){
-    if(!this.world)return;
-    this.renderer.setCamera(this.player.x,this.player.y,this.world.W,this.world.H);
-    this.renderer.render({world:this.world,player:this.player,constructions:this.constructions,em:this.em,dn:this.dn,weather:this.weather,particles:this.particles,inventory:this.inventory});
-  }
-}
-
-// ─── ARRANCAR ───────────────────────────────────────────
-window.addEventListener('DOMContentLoaded',()=>{
-  document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
-  window.game=new Game();
-});
-</script>
+<script src="game.js"></script>
 </body>
 </html>
