@@ -1,0 +1,77 @@
+/* ══════════════════════════════════════
+   hud.css
+   ══════════════════════════════════════ */
+#hud {
+  position:fixed; top:0; left:0; right:0;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  padding:10px 16px; z-index:50; pointer-events:none;
+  transition:opacity 0.3s;
+}
+#hud.hidden { opacity:0; pointer-events:none; }
+
+.hud-block {
+  background: var(--hud-bg);
+  border:1px solid rgba(139,0,0,0.4);
+  border-radius:3px; padding:7px 13px; min-width:120px;
+}
+.hud-label {
+  font-size:8px; letter-spacing:3px;
+  color:rgba(255,255,255,0.38); text-transform:uppercase; margin-bottom:4px;
+}
+.hud-value { font-size:20px; letter-spacing:2px; color:#fff; }
+.hud-value.gold  { color:var(--gold);  text-shadow:0 0 8px var(--gold); }
+.hud-value.green { color:var(--green); text-shadow:0 0 8px var(--green); }
+
+.hud-center {
+  background:var(--hud-bg);
+  border:1px solid rgba(139,0,0,0.4);
+  border-radius:3px; padding:7px 18px;
+  text-align:center;
+}
+#episodeLabel {
+  font-size:8px; letter-spacing:3px;
+  color:rgba(255,255,255,0.38); text-transform:uppercase;
+}
+#waveDisplay {
+  font-size:16px; letter-spacing:2px;
+  color:var(--gold); text-shadow:0 0 8px var(--gold);
+  margin-top:2px;
+}
+
+/* Health bar */
+#healthBar {
+  width:130px; height:8px;
+  background:rgba(255,255,255,0.08); border-radius:2px;
+  overflow:hidden; margin:4px 0;
+  border:1px solid rgba(139,0,0,0.3);
+}
+#healthFill {
+  height:100%; width:100%;
+  background:linear-gradient(90deg, var(--blood), var(--gore));
+  transition:width 0.18s;
+  box-shadow:0 0 5px var(--gore);
+}
+#healthValue {
+  font-size:11px; color:rgba(255,255,255,0.5); letter-spacing:1px;
+}
+
+/* Combo display */
+#comboDisplay {
+  position:fixed; left:16px; bottom:30px;
+  font-family:var(--f-title); font-size:36px;
+  color:var(--gold); text-shadow:0 0 16px var(--gold);
+  z-index:50; pointer-events:none;
+  opacity:0; transform:scale(0.8);
+  transition:opacity 0.15s, transform 0.15s;
+}
+#comboDisplay.show { opacity:1; transform:scale(1); }
+
+/* Attack indicator */
+#attackDisplay {
+  position:fixed; left:50%; bottom:30px; transform:translateX(-50%);
+  font-family:var(--f-title); font-size:22px; letter-spacing:4px;
+  color:#fff; text-shadow:2px 2px 0 var(--blood);
+  z-index:50; pointer-events:none;
+  opacity:0; transition:opacity 0.1s;
+}
+#attackDisplay.show { opacity:1; }
