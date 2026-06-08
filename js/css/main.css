@@ -1,0 +1,125 @@
+/* ══════════════════════════════════════
+   main.css — layout base
+   ══════════════════════════════════════ */
+:root {
+  --blood:   #8b0000;
+  --gore:    #ff2020;
+  --flesh:   #c8a97e;
+  --dark:    #0a0a0a;
+  --darker:  #050505;
+  --green:   #39ff14;
+  --gold:    #ffd700;
+  --hud-bg:  rgba(0,0,0,0.78);
+  --f-title: 'Bangers', cursive;
+  --f-hud:   'Share Tech Mono', monospace;
+  --f-horror:'Creepster', cursive;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--darker);
+  overflow: hidden;
+  font-family: var(--f-hud);
+  user-select: none;
+}
+
+#gameWrapper {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* scanlines */
+#gameWrapper::before {
+  content:'';
+  position:fixed; inset:0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px
+  );
+  pointer-events:none; z-index:95;
+}
+/* vignette */
+#gameWrapper::after {
+  content:'';
+  position:fixed; inset:0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%);
+  pointer-events:none; z-index:94;
+}
+
+#gameCanvas {
+  display:block;
+  position:absolute;
+  top:0; left:0;
+}
+
+/* Hit flash overlay */
+#hitOverlay {
+  position:fixed; inset:0;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(139,0,0,0.7) 100%);
+  pointer-events:none; z-index:400;
+  opacity:0; transition:opacity 0.08s;
+}
+
+/* Wave banner */
+#waveBanner {
+  position:fixed; top:50%; left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  font-family: var(--f-title);
+  font-size: clamp(44px,7vw,84px);
+  color: var(--gore);
+  letter-spacing:6px;
+  text-shadow: 4px 4px 0 #3a0000, 0 0 40px rgba(220,0,0,0.5);
+  z-index:200; pointer-events:none;
+  opacity:0;
+  transition: transform 0.28s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.28s;
+  white-space:nowrap;
+  text-align:center;
+}
+#waveBanner.show {
+  transform:translate(-50%,-50%) scale(1);
+  opacity:1;
+}
+
+/* Kill feed */
+#killFeed {
+  position:fixed; right:16px; top:80px;
+  display:flex; flex-direction:column; gap:3px;
+  z-index:50; pointer-events:none;
+}
+.kill-entry {
+  font-size:10px; color:var(--gore); text-align:right;
+  animation: killFade 2s forwards;
+}
+@keyframes killFade {
+  0%  { opacity:1; transform:translateX(0); }
+  75% { opacity:1; }
+  100%{ opacity:0; transform:translateX(18px); }
+}
+
+/* Boss HP bar */
+#bossHPBar {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  width:min(420px,80vw); z-index:50;
+  background:var(--hud-bg);
+  border:1px solid rgba(139,0,0,0.5);
+  padding:8px 14px;
+}
+#bossHPBar.hidden { display:none; }
+#bossBarWrap {
+  width:100%; height:10px;
+  background:rgba(255,255,255,0.08); border-radius:2px; margin-top:4px;
+  border:1px solid rgba(139,0,0,0.3);
+}
+#bossFill {
+  height:100%; width:100%;
+  background:linear-gradient(90deg, #5a0000, var(--gore));
+  border-radius:2px; transition:width 0.2s;
+  box-shadow:0 0 8px var(--gore);
+}
+#bossName {
+  font-size:12px; letter-spacing:4px;
+  color:var(--gore); text-align:center;
+}
